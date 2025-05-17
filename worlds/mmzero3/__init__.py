@@ -6,8 +6,6 @@ from .Items import MMZero3Item, item_data_table, item_table
 from .Locations import MMZero3Location, location_data_table, location_table, locked_locations
 from .Options import MMZero3Options
 from .Regions import region_data_table
-#from .Rules import get_button_rule
-
 
 class MMZero3WebWorld(WebWorld):
     theme = "ice"
@@ -27,8 +25,6 @@ class MMZero3World(World):
     web = MMZero3WebWorld()
     options_dataclass = MMZero3Options
     options: MMZero3Options
-    #settings: typing.ClassVar[MMZero3Settings]
-    #required_client_version = (0, 5, 0)
 
     def create_item(self, name: str) -> MMZero3Item:
         return MMZero3Item(name, item_data_table[name].type, item_data_table[name].code, self.player)
