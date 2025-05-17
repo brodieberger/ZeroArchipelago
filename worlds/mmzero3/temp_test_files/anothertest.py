@@ -1,17 +1,10 @@
 import typing
 
-from BaseClasses import Item, ItemClassification
-
-
 class ItemData(typing.NamedTuple):
     code: int
     itemName: str
     classification: ItemClassification
     itemID: int
-
-
-class MLSSItem(Item):
-    game: str = "Mario & Luigi Superstar Saga"
 
 
 itemList: typing.List[ItemData] = [
