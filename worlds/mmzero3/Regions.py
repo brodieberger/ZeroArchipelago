@@ -11,3 +11,4 @@ region_data_table: Dict[str, MMZero3RegionData] = {
     "Level 1": MMZero3RegionData(["Boss Stage"]),
     "Boss Stage": MMZero3RegionData(),
 }
+

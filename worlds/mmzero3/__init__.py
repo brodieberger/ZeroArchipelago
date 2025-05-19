@@ -2,12 +2,11 @@ from typing import List, Dict, Any
 
 from BaseClasses import Region, Tutorial
 from worlds.AutoWorld import WebWorld, World
+from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule
 from .Items import MMZero3Item, item_data_table, item_table
 from .Locations import MMZero3Location, location_data_table, location_table, locked_locations
 from .Options import MMZero3Options
 from .Regions import region_data_table
-#from .Rules import get_button_rule
-
 
 class MMZero3WebWorld(WebWorld):
     theme = "ice"
@@ -27,8 +26,6 @@ class MMZero3World(World):
     web = MMZero3WebWorld()
     options_dataclass = MMZero3Options
     options: MMZero3Options
-    #settings: typing.ClassVar[MMZero3Settings]
-    #required_client_version = (0, 5, 0)
 
     def create_item(self, name: str) -> MMZero3Item:
         return MMZero3Item(name, item_data_table[name].type, item_data_table[name].code, self.player)
@@ -56,7 +53,7 @@ class MMZero3World(World):
                 location_name: location_data.address for location_name, location_data in location_data_table.items()
                 if location_data.region == region_name and location_data.can_create(self)
             }, MMZero3Location)
-            region.add_exits(region_data_table[region_name].connecting_regions)
+            region.add_exits({target: f"To {target}" for target in region_data_table[region_name].connecting_regions})
 
         # Place locked locations.
         for location_name, location_data in locked_locations.items():
@@ -71,15 +68,15 @@ class MMZero3World(World):
         return "100 Energy Crystals"
     
     def set_rules(self) -> None:
-        # Cyber Elves require access to Level 1
-        for elf in ["Cyber Elf 1", "Cyber Elf 2", "Cyber Elf 3", "Cyber Elf 4"]:
-            self.multiworld.get_location(elf, self.player).access_rule = \
-                lambda state, player=self.player: state.can_reach("Level 1", "Region", player)
-
-        # Kill Omega requires access to Boss Stage
-        self.multiworld.get_location("Kill Omega", self.player).access_rule = \
-            lambda state, player=self.player: state.can_reach("Boss Stage", "Region", player)
-
+        set_rule(self.multiworld.get_entrance("To Boss Stage", self.player),
+                    lambda state: state.has("Boss Key", self.player))
+        
+        set_rule(self.multiworld.get_location("Kill Omega", self.player),
+                    lambda state: state.can_reach_region("Boss Stage", self.player))
+        
         # Completion condition
         self.multiworld.completion_condition[self.player] = \
             lambda state: state.has("Victory", self.player)
+        
+        from Utils import visualize_regions
+        visualize_regions(self.multiworld.get_region("Menu", self.player), "my_world.puml")
