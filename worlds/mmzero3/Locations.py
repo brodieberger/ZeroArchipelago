@@ -16,37 +16,49 @@ class MMZero3LocationData(NamedTuple):
     can_create: Callable[["MMZero3World"], bool] = lambda world: True
     locked_item: Optional[str] = None
 
+# Stage names as they appear in the game's ram
+stage_names = [
+    "Derelict Spacecraft", "Aegis Volcano Base", "Oceanic Highway Ruins",
+    "Weapons Repair Factory", "Old Residential", "Omega Missile",
+    "Twilight Desert", "Frontline Ice Base", "Forest of Anatre",
+    "Area X-2", "Energy Facility", "Snowy Plains",
+    "Sunken Library", "Giant Elevator"
+]
 
+# Exclude these items. They are all of the files that can be found in the Hub area
+# These are excluded to due issues with the memory manipulation I am using, hopefully only a temp fix.
+exclude = [23, 44, 58, 92, 99, 106, 107, 116, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176]
 location_data_table: Dict[str, MMZero3LocationData] = {
     "Z Saber": MMZero3LocationData(
         region="Opening Stage",
         locked_item="Z Saber",
-        address=1,
+        address=999,
     ),
-    "Get Cyber Elf 1": MMZero3LocationData(
+    **{
+        f"Get Secret Disk {i}": MMZero3LocationData(
+            region="Level 1",
+            address=i,
+        )
+        for i in range(1, 181) if i not in exclude
+    },
+    
+    **{
+        f"Complete {stage}": MMZero3LocationData(
+            region="Level 1",
+            address=180 + idx + 1,
+        )
+        for idx, stage in enumerate(stage_names)
+    },
+
+    "Complete Sub Arcadia": MMZero3LocationData(
         region="Level 1",
-        address=2,
+        locked_item="Boss Key",
+        address=195,
     ),
-    "Get Cyber Elf 2": MMZero3LocationData(
-        region="Level 1",
-        address=3,
-    ),
-    "Get Cyber Elf 3": MMZero3LocationData(
-        region="Level 1",
-        address=4,
-    ),
-    "Get Cyber Elf 4": MMZero3LocationData(
-        region="Level 1",
-        address=5,
-    ),
-    "Kill Boss 1": MMZero3LocationData(
-        region="Level 1",
-        address=6,
-    ),
-    "Kill Omega": MMZero3LocationData(
+    "Complete Abandoned Research Laboratory": MMZero3LocationData(
         region="Boss Stage",
         locked_item="Victory",
-        address=7,
+        address=196,
     ),
 }
 
