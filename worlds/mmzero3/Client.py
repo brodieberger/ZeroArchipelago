@@ -43,9 +43,6 @@ class MMZero3Client(BizHawkClient):
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
         try:
             # Read save data
-
-            
-
             save_data = (await bizhawk.read(
                 ctx.bizhawk_ctx,
                 [(0x0371B8, 45, "Combined WRAM")])
