@@ -91,6 +91,13 @@ class MMZero3World(World):
         # TODO: implement energy crystal
         return "100 Energy Crystals (Unimplemented)"
     
+    def fill_slot_data(self) -> Dict[str, Any]:
+        return {
+            "required_secret_disks": self.options.required_secret_disks.value,
+            "goal": self.options.goal.value,
+            "easy_ex_skill": self.options.easy_ex_skill.value
+        }
+
     def set_rules(self) -> None:
         set_rule(self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
                     lambda state: state.has("Sub Arcadia Cleared", self.player))
