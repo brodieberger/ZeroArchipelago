@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Choice, PerGameCommonOptions, Range
+from Options import Choice, Range, Toggle, PerGameCommonOptions
 
 class Goal(Choice):
     """
@@ -16,9 +16,14 @@ class RequiredSecretDisks(Range):
     display_name = "Required Secret Disks"
     range_start = 0
     range_end = 160
-    default = 60
+    default = 80
+
+class EasyExSkill(Toggle):
+    """Give the player an S-Rank at the end of the level. Always gives EX-Skill. Note this can also make certain bosses harder, so don't consider this an easy mode!"""
+    display_name = "Always have S-Rank"
 
 @dataclass
 class MMZero3Options(PerGameCommonOptions):
     goal: Goal
     required_secret_disks: RequiredSecretDisks
+    easy_ex_skill: EasyExSkill
