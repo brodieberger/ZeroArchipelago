@@ -183,7 +183,6 @@ class MMZero3Client(BizHawkClient):
 
                 # Check if the player has completed a level
                 if results_screen != b'\x00' and not self.in_results_screen:
-                    print(f"Results screen detected: {self.in_results_screen}")
                     current_level = int.from_bytes(level_data, byteorder='little')
                     location_id = level_to_location.get(current_level)
 
@@ -220,18 +219,11 @@ class MMZero3Client(BizHawkClient):
                             ctx.finished_game = True
                         
                     # Fill player inventory so that player cant open items in result screen
-                    print("Inventory Emptied")
                     await bizhawk.write(
                         ctx.bizhawk_ctx,
                         [(0x0371B8, list(self.empty_inventory), "Combined WRAM")]
                     )
-                    print(f"Real Inventory :{self.real_inventory}")
-                    print(f"In-Game Inventory :{self.in_game_inventory}")
-                    print(f"RAM Inventory :{save_data} \n")
-
                     self.in_results_screen = True
-                    print(f"Results screen over: {self.in_results_screen}")
-
 
             #IF THE PLAYER IS NOT IN A LEVEL (hub)
             else:
@@ -241,10 +233,6 @@ class MMZero3Client(BizHawkClient):
 
                 # Sync to real inventory once on entering hub
                 if not self.synced_hub:
-                    print("Entering hub, syncing inventory")
-                    print(f"Real Inventory :{self.real_inventory}")
-                    print(f"In-Game Inventory :{self.in_game_inventory}")
-                    print(f"RAM Inventory :{save_data} \n")
                     await bizhawk.write(
                         ctx.bizhawk_ctx,
                         [(0x0371B8, list(self.real_inventory), "Combined WRAM")]
@@ -255,19 +243,10 @@ class MMZero3Client(BizHawkClient):
                         ctx.bizhawk_ctx,
                         [(0x0371B8, 45, "Combined WRAM")])
                     )[0]
-
-                    print("Inventory Synced")
-                    print(f"Real Inventory :{self.real_inventory}")
-                    print(f"In-Game Inventory :{self.in_game_inventory}")
-                    print(f"RAM Inventory :{save_data} \n")
                     self.synced_hub = True
 
                 # Check if an item was picked up or opened while in the hub.
                 if save_data != self.real_inventory:
-                    print("Checking for new hub items...")
-                    print(f"Save Data:       {save_data}")
-                    print(f"Real Inventory:  {self.real_inventory}\n")
-
                     for i in range(len(save_data)):
                         real_byte = self.real_inventory[i]
                         save_byte = save_data[i]
@@ -277,10 +256,6 @@ class MMZero3Client(BizHawkClient):
 
                         if new_bits:
                             self.real_inventory[i] |= new_bits  # Only add bits, never remove
-
-                    print("Updated Real Inventory (new items only)")
-                    print(f"Real Inventory: {self.real_inventory}\n")
-
 
             # receive an item from AP and add it to ram.
             # If in hub, add it to real inventory AND insert into memory, else just real inventory
