@@ -22,7 +22,6 @@ class MMZero3Client(BizHawkClient):
     
     in_game_inventory = bytearray(45)
     real_inventory = bytearray(45)
-    full_inventory = bytearray([0xFF] * 45)
     empty_inventory = bytearray(45)
 
     required_disks = 80 # Will be overwritten from settings
@@ -50,6 +49,95 @@ class MMZero3Client(BizHawkClient):
         0x0E: 194,  # giant elevator
         0x0F: 195,  # sub arcadia
         0x10: 196,  # final level
+    }
+
+
+    # eReader content memory array
+    eReader_bitflag_inventory = [0] * 12 
+
+    # eReader byte-map inventory (10 bytes covering IDs 141–180)
+    eReader_byte_map_inventory = [0] * 10
+
+    # Bitflags for eReader content. AP Item ID -> (word_index, bit_position)
+    bitflags = {
+        111: (0, 1),
+        112: (0, 6),
+        113: (0, 7),
+        114: (0, 10),
+        115: (1, 1),
+        117: (1, 4),
+        118: (1, 10),
+        119: (1, 12),
+        120: (1, 13),
+        121: (1, 15),
+        122: (2, 2),
+        123: (2, 4),
+        124: (2, 5),
+        125: (2, 7),
+        126: (2, 8),
+        127: (2, 13),
+        128: (2, 15),
+        129: (3, 4),
+        130: (3, 5),
+        131: (3, 7),
+        132: (3, 8),
+        133: (3, 10),
+        134: (3, 13),
+        135: (4, 2),
+        136: (4, 11),
+        137: (4, 13),
+        138: (5, 3),
+        139: (5, 5),
+        140: (5, 6),
+    }
+
+    # Byte map for for eReader content. AP Item ID -> (Ram Address, Value)
+    byte_map = {
+        # Dialogue Window (0x2002474)
+        141: (0x02474, 0x01),
+        142: (0x02474, 0x02),
+        143: (0x02474, 0x03),
+        144: (0x02474, 0x04),
+        145: (0x02474, 0x05),
+        146: (0x02474, 0x06),
+        147: (0x02474, 0x07),
+        148: (0x02474, 0x08),
+
+        # Title Screen Design (0x2002475)
+        149: (0x02475, 0x01),
+        150: (0x02475, 0x02),
+        151: (0x02475, 0x03),
+        152: (0x02475, 0x04),
+
+        # Elevator Design (0x2002476)
+        153: (0x02476, 0x01),
+        154: (0x02476, 0x02),
+
+        # Base Environment (0x2002477)
+        155: (0x02477, 0x01),
+        156: (0x02477, 0x02),
+
+        # Ciel's Computer Design (0x2002478)
+        157: (0x02478, 0x01),
+        158: (0x02478, 0x02),
+        159: (0x02478, 0x03),
+        160: (0x02478, 0x04),
+
+        # Life Pickup Design (0x2002479)
+        161: (0x02479, 0x01),
+        162: (0x02479, 0x02),
+
+        # E-Crystals Design (0x200247A)
+        163: (0x0247A, 0x01),
+        164: (0x0247A, 0x02),
+
+        # Z Plate Design (0x200247C)
+        177: (0x0247C, 0x01),
+        178: (0x0247C, 0x02),
+
+        # Buster Shot Design (0x200247D)
+        179: (0x0247D, 0x01),
+        180: (0x0247D, 0x02),
     }
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
@@ -125,7 +213,7 @@ class MMZero3Client(BizHawkClient):
 
                 # Check if an item was picked up in a level
                 # TODO: find a better way of doing this. This if statement is insane.
-                if save_data != self.in_game_inventory and results_screen == b'\x00' and save_data != self.full_inventory and demo_screen != b'\x00':
+                if save_data != self.in_game_inventory and results_screen == b'\x00' and demo_screen != b'\x00':
                     # Find item that you picked up and send the location check for that item, then update the in game inventory (not ram data)
                     new_locations = []
                     for i in range(len(save_data)):
@@ -189,12 +277,6 @@ class MMZero3Client(BizHawkClient):
                             await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                             ctx.finished_game = True
                         
-                    # Fill player inventory so that player cant open items in result screen
-                    # TODO Lock this until the whole thing is done.
-                    await bizhawk.write(
-                        ctx.bizhawk_ctx,
-                        [(0x0371B8, list(self.full_inventory), "Combined WRAM")]
-                    )
                     self.in_results_screen = True
 
 
@@ -217,6 +299,16 @@ class MMZero3Client(BizHawkClient):
                         [(0x0371B8, 45, "Combined WRAM")])
                     )[0]
                     self.synced_hub = True
+
+                    # Write eReader contents
+                    await bizhawk.write(
+                        ctx.bizhawk_ctx,
+                        [(0x02438, list(self.eReader_bitflag_inventory), "Combined WRAM")]
+                    )
+                    await bizhawk.write(
+                        ctx.bizhawk_ctx,
+                        [(0x02474, self.eReader_byte_map_inventory, "Combined WRAM")]
+                    )
 
                 # Check if an item was picked up or opened while in the hub.
                 if save_data != self.real_inventory:
@@ -251,6 +343,35 @@ class MMZero3Client(BizHawkClient):
                             ctx.bizhawk_ctx,
                             [(0x0371B8, list(self.real_inventory), "Combined WRAM")]
                         )
+            
+                # If the item is an eReader bitflag item, insert into the RAM
+                if item.item >= 111 and item.item <= 140:
+                    if item.item not in self.bitflags:
+                        continue
+                    word_index, bit = self.bitflags[item.item]
+
+                    byte_index = word_index * 2
+                    mask = 1 << (bit - 1) 
+
+                    if bit <= 8:
+                        self.eReader_bitflag_inventory[byte_index]     |= mask
+                    else:
+                        self.eReader_bitflag_inventory[byte_index + 1] |= (mask >> 8)
+                    await bizhawk.write(
+                        ctx.bizhawk_ctx,
+                        [(0x02438, list(self.eReader_bitflag_inventory), "Combined WRAM")]
+                    )
+
+                # If the item is an eReader byte map item, insert into the RAM       
+                if item.item in self.byte_map:
+                    addr, value = self.byte_map[item.item]
+                    self.eReader_byte_map_inventory[addr - 0x02474] = value
+                    
+                    await bizhawk.write(
+                        ctx.bizhawk_ctx,
+                        [(0x02474, self.eReader_byte_map_inventory, "Combined WRAM")]
+                    )
+
             self.received_index = len(ctx.items_received)
 
             # Additional check to see if the player collected enough disks AFTER beating final stage. Only used in default game goal
@@ -314,6 +435,16 @@ class MMZero3Client(BizHawkClient):
                 ctx.bizhawk_ctx,
                 [(0x0372B1, [0x06], "Combined WRAM")]
             )
+
+        # Write eReader contents
+        await bizhawk.write(
+            ctx.bizhawk_ctx,
+            [(0x02438, list(self.eReader_bitflag_inventory), "Combined WRAM")]
+        )
+        await bizhawk.write(
+            ctx.bizhawk_ctx,
+            [(0x02474, self.eReader_byte_map_inventory, "Combined WRAM")]
+        )
 
         # Unlocks Z Saber, just a temp thing here cause of my AP rules that I don't feel like changing ATM
         await ctx.send_msgs([{
