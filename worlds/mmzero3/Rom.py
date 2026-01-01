@@ -34,7 +34,13 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
         return base_rom_bytes
 
 def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
+    general_changes_patch(patch)
+    leave_level_patch(patch)
+    handle_inventory_patch(patch)
 
+    patch.write_file("token_data.bin", patch.get_token_binary())
+
+def general_changes_patch(patch: MMZero3ProcedurePatch) -> None:
     # Prevent disks from being opened in mission complete screen
     patch.write_token(
         APTokenTypes.WRITE,
@@ -42,8 +48,6 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         bytes([0xE0]),
     )
     # Make disks show up greyed out in mission complete screen.
-    # TODO: 0xE78F6 does something that I did not document, 01 78 > 00 20
-    #  probably something related to text changes?
     patch.write_token(
         APTokenTypes.WRITE,
         0xE78D0,
@@ -57,7 +61,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         bytes([0x00, 0x00]),
     )
 
-    # PATCH: CHECK IF PLAYER CAN LEAVE LEVEL ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+def leave_level_patch(patch: MMZero3ProcedurePatch) -> None:
+    """Check if player can leave level. Allow them do to so or play error sound. Display the proper text."""
     # Jump to custom code block 1 on level exit, which is written to a chunk of unused ROM.
     patch.write_token(
         APTokenTypes.WRITE,
@@ -108,9 +113,26 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         0x370C63,
         bytes([0x2C, 0x29, 0x36, 0x29]),
     )
-    # PATCH OVER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    patch.write_file("token_data.bin", patch.get_token_binary())
+def handle_inventory_patch(patch: MMZero3ProcedurePatch) -> None:
+    """Separates in game inventory (items collected by player) and Cervau inventory (items awarded by AP)"""
+    # Note: In RAM, there are two structs that store the players inventory. The first inventory is the disks the player has collected
+    # and what the player has opened using Cervau. After that block there is another struct that copies the first as a backup in case
+    # the player dies and needs to have their inventory wiped. This backup struct is overwritten here to be used for archipelago purposes.
+    
+    # Changes a pointer, makes Cervau check backup inventory.
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xEE198,
+        bytes([0x48]),
+    )
+
+    # No Ops branch that saves current inventory to back up inventory.
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x1A0F4,
+        bytes([0x00, 0x00]),
+    )
 
 class MMZero3Settings(settings.Group):
     class MMZero3RomFile(settings.UserFilePath):
