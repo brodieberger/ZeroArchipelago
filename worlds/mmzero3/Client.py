@@ -187,8 +187,6 @@ class MMZero3Client(BizHawkClient):
                 [(0x042AE2, 1, "Combined WRAM")] 
             ))[0]
 
-            print(item_update)
-
             # Will be changed to true if the gamestate needs to be syncronised.
             # Either on some update or the player changing stages.
             needs_sync = False
@@ -198,7 +196,6 @@ class MMZero3Client(BizHawkClient):
             if self.prev_level_value != is_in_hub:
                 needs_sync = True
 
-            # Check if an item was picked up in a level
             # Check if an item was picked up in a level
             if item_update and demo_screen == 0:
                 needs_sync = True
