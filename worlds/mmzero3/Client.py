@@ -197,25 +197,42 @@ class MMZero3Client(BizHawkClient):
                 needs_sync = True
 
             # Check if an item was picked up in a level
-            if item_update and demo_screen == 0:
+            if item_update != b'\x00\x00' and demo_screen != b'\x00':
+                print(item_update)
                 needs_sync = True
 
-                disk_byte = item_update[0]
+                value = item_update[0]
                 ram_offset = item_update[1]
 
-                disk_index = disk_byte - 0xB8
-                if disk_index < 0:
+                if value == 0:
                     return
 
-                # Convert to Archipelago location ID
-                # Example: disk_index=1, ram_offset=0x19 -> 101
-                location_id = (disk_index * 100) + ram_offset
+                byte_index = ram_offset - 0xB8
+                if byte_index < 0:
+                    return
+
+                base_disk = byte_index * 4
+
+                if value == 0x01:
+                    disk_number = base_disk + 1
+                elif value == 0x02:
+                    disk_number = base_disk + 2
+                elif value == 0x04:
+                    disk_number = base_disk + 3
+                elif value == 0x08:
+                    disk_number = base_disk + 4
+                else:
+                    return
+
+                location_id = disk_number
+                print(location_id)
 
                 await ctx.send_msgs([{
                     "cmd": "LocationChecks",
                     "locations": [location_id]
                 }])
 
+            # Clear update in memory now that it has been read
             await bizhawk.write(
                 ctx.bizhawk_ctx,
                 [(0x0371E5, [0,0], "Combined WRAM")]
@@ -326,12 +343,14 @@ class MMZero3Client(BizHawkClient):
                 # Only set the lower nibble bit (bit positions 0–3)
                 inventory[byte_index] |= (1 << bit_position)
 
+        print(inventory)
         return inventory
         
 
     async def sync_game_state(self, ctx):
         """Syncronizes the player's collected items and inventory."""
         
+        print("syncing game state!")
         self.synced_hub = False
         self.in_results_screen = False
 
