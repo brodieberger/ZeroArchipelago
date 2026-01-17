@@ -137,10 +137,28 @@ def separate_inventory_patch(patch: MMZero3ProcedurePatch) -> None:
     )
     # 283DF90???
 
-    # No Ops branch that saves current inventory to back up inventory.
+    # No Ops branches that saves current inventory to back up inventory.
     patch.write_token(
         APTokenTypes.WRITE,
         0x1A0F2,
+        bytes([0x00, 0x00, 0x00, 0x00]),
+    )
+
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x1A100,
+        bytes([0x00, 0x00, 0x00, 0x00]),
+    )
+
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xEF31E,
+        bytes([0x00, 0x00, 0x00, 0x00]),
+    )
+
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xEF32C,
         bytes([0x00, 0x00, 0x00, 0x00]),
     )
 
