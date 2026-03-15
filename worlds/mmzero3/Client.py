@@ -20,6 +20,7 @@ class MMZero3Client(BizHawkClient):
     player_warned = False
     
     cervau_inventory = bytearray(45)
+    zero_inventory = bytearray(45)
 
     required_disks = 80 # Will be overwritten from settings
     goal_type = 0 # will also be overwritten. 0 is for default (kill boss with enough disks), 1 is vanilla (just kill the boss)
@@ -253,15 +254,19 @@ class MMZero3Client(BizHawkClient):
                 needs_sync = True
                 item = ctx.items_received[i]
 
-                # If the item is a secret disk, add to cervau inventory
-                if item.item >= 1 and item.item <= 180: 
-                    item_index = item.item - 1  # Items are 1-indexed
-                    byte_index = item_index // 4
-                    bit_position = item_index % 4
+                if 1 <= item.item <= 180:
+                    disk_number = item.item - 1           # 0-based index
+                    byte_index = disk_number // 4         # which byte
+                    disk_in_byte = disk_number % 4        # which nibble in byte
 
-                    # Update cervau inventory
-                    self.cervau_inventory[byte_index] |= (1 << bit_position)
+                    # Calculate the mask for the "found" bit
+                    found_mask = 1 << disk_in_byte       # 0x01, 0x02, 0x04, 0x08
+
+                    # Update inventory: only the found bit, everything else untouched
+                    self.cervau_inventory[byte_index] |= found_mask
+
                     self.collected_disks += 1
+
             
                 # If the item is an eReader bitflag item
                 if item.item >= 111 and item.item <= 140:
@@ -294,6 +299,10 @@ class MMZero3Client(BizHawkClient):
                 [(0x0371B8, 45, "Combined WRAM")])
             )[0]
 
+            self.cervau_inventory = bytearray(
+                (await bizhawk.read(ctx.bizhawk_ctx, [(0x0371E8, 45, "Combined WRAM")]))[0]
+            )
+
 
         except bizhawk.RequestFailedError:
             pass
@@ -301,6 +310,7 @@ class MMZero3Client(BizHawkClient):
     def get_items(self, ctx) -> bytearray:
         """Updates items collected by Zero based on ctx.checked_locations. Used in case of player using savestates. 
         Only lower nibble (found state) is updated. Upper nibble (opened state) is untouched."""
+
         inventory = bytearray(45)
 
         for location_id in ctx.checked_locations:
@@ -317,14 +327,10 @@ class MMZero3Client(BizHawkClient):
     async def item_found(self, ctx, zero_inventory):
         """Find item that was picked up and send the location check for that item"""
 
-        print("item found!")
-        print(zero_inventory)
-
         new_save_data = (await bizhawk.read(
             ctx.bizhawk_ctx,
             [(0x0371B8, 45, "Combined WRAM")])
         )[0]
-        print(new_save_data)
 
         new_locations = []
         for i in range(len(new_save_data)):
@@ -333,13 +339,11 @@ class MMZero3Client(BizHawkClient):
             new_bits = new_save_data[i] & 0x0F
 
             changed_bits = new_bits & (~old_bits)  # Bits that were 0 and are now 1
-            print(changed_bits)
             for bit in range(4):
                 if changed_bits & (1 << bit):
-                    location_id = i * 4 + bit + 1  # Items are 1-indexed
+                    location_id = i * 4 + bit + 1 
                     new_locations.append(location_id)
 
-        print(new_locations)
         if new_locations:
             await ctx.send_msgs([{
                 "cmd": "LocationChecks",
@@ -354,7 +358,8 @@ class MMZero3Client(BizHawkClient):
 
     async def sync_game_state(self, ctx):
         """Syncronizes the player's collected items and inventory."""
-        
+
+        print("syncing")
         self.synced_hub = False
         self.in_results_screen = False
 
