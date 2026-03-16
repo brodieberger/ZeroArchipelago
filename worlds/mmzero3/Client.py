@@ -19,8 +19,9 @@ class MMZero3Client(BizHawkClient):
     in_results_screen = False
     player_warned = False
     
-    cervau_inventory = bytearray(45)
-    zero_inventory = bytearray(45)
+    cerveau_inventory = bytearray(45)
+    disks_found = bytearray(10)
+    dialogue_id = bytearray(2)
 
     required_disks = 80 # Will be overwritten from settings
     goal_type = 0 # will also be overwritten. 0 is for default (kill boss with enough disks), 1 is vanilla (just kill the boss)
@@ -57,7 +58,7 @@ class MMZero3Client(BizHawkClient):
     eReader_byte_map_inventory = [0] * 10
 
     # Bitflags for eReader content. AP Item ID -> (word_index, bit_position)
-    bitflags = {
+    BIT_FLAGS = {
         111: (0, 1),
         112: (0, 6),
         113: (0, 7),
@@ -90,7 +91,7 @@ class MMZero3Client(BizHawkClient):
     }
 
     # Byte map for for eReader content. AP Item ID -> (Ram Address, Value)
-    byte_map = {
+    BYTE_MAP = {
         # Dialogue Window (0x2002474)
         141: (0x02474, 0x01),
         142: (0x02474, 0x02),
@@ -138,6 +139,47 @@ class MMZero3Client(BizHawkClient):
         180: (0x0247D, 0x02),
     }
 
+    # Which location check to give based on dialogue. (So that no disks can be missed based on dialogue)
+    # Dialogue ID: location check to give (NPC)
+    DIALOGUE_LOCATION_MAP = {
+        # 241: 107 (Andrew)
+        0x242: 107,
+        0x243: 107,
+        0x2D0: 107,
+        0x2D1: 107,
+        0x2D2: 107,
+
+        # 247: 116 (Alouette)
+        0x249: 116,
+        0x24A: 116,
+
+        # 24e: 169 (Hibou)
+        0x250: 169,
+        0x251: 169,
+
+        # 253: 175 (Menart)
+        0x255: 175,
+        0x256: 175,
+        0x257: 175,
+        0x268: 175,
+
+        # 25a: 167 (Rocinolle)
+        0x25C: 167,
+
+        # 25d: 44 (Rocinolle unmissable)
+
+        # 271: 173 (Hirondelle unmissable)
+
+        # 284: 174 (Doigt unmissable)
+
+        # 2a6: 58 (Tower guy)
+        0x2A9: 58,
+        0x2AB: 58,
+
+        # 2b1: 23 (guy in room 02D)
+        0x2B3: 23,
+    }
+
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
             # Check ROM name/patch version
@@ -162,12 +204,17 @@ class MMZero3Client(BizHawkClient):
                 self.goal_type = ctx.slot_data.get("goal", 0)
                 self.easy_ex_skill = ctx.slot_data.get("easy_ex_skill", 0)
                 self.options_set = True
-            
-            # Retrieves update from game
-            # First Byte: Bit representing item, Second Byte: Inventory Offset
-            item_update = (await bizhawk.read(
+
+            # Disks found in level
+            disks_found = (await bizhawk.read(
                 ctx.bizhawk_ctx,
-                [(0x0371E5, 2, "Combined WRAM")])
+                [(0x3DF94, 10, "Combined WRAM")])
+            )[0]
+
+            # Most recent npc dialogue. Used to reward items
+            dialogue_id = (await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [(0x371E6, 2, "Combined WRAM")])
             )[0]
             
             # Read current level
@@ -198,12 +245,54 @@ class MMZero3Client(BizHawkClient):
                 needs_sync = True
 
             # Check if an item was picked up in a level
-            if item_update != b'\x00\x00' and demo_screen != b'\x00':
-                await self.item_found(ctx, self.zero_inventory)
-                needs_sync = True
+            if disks_found != self.disks_found and demo_screen != b'\x00':
+                new_locations = []
+
+                for old, new in zip(self.disks_found, disks_found):
+                    if old == 0xFF and new != 0xFF:
+                        new_locations.append(new+1)
+
+                if new_locations:
+                    print("New disks:", new_locations)
+
+                    await ctx.send_msgs([{
+                        "cmd": "LocationChecks",
+                        "locations": new_locations
+                    }])
+
+                    needs_sync = True
+
+                self.disks_found = disks_found
+
+            # Check if an NPC has given a disk (or is talked to after their reward period is expired)
+            if dialogue_id != self.dialogue_id:
+                print("NPC DIALOGUE CHANGE")
+
+                print("New raw:", list(dialogue_id))
+                print("Old raw:", list(self.dialogue_id))
+
+                new_dialogue = int.from_bytes(dialogue_id, "little")
+                old_dialogue = int.from_bytes(self.dialogue_id, "little")
+
+                print("New dialogue:", new_dialogue, hex(new_dialogue))
+                print("Old dialogue:", old_dialogue, hex(old_dialogue))
+
+                location = self.DIALOGUE_LOCATION_MAP.get(new_dialogue)
+
+                if location is not None:
+                    print("Mapped location reward:", location)
+
+                    await ctx.send_msgs([{
+                        "cmd": "LocationChecks",
+                        "locations": [location]
+                    }])
+                else:
+                    print("Dialogue not mapped to a location")
+
+                # Update stored state
+                self.dialogue_id = dialogue_id
 
             # Check if the player has completed a level
-            # TODO: Make this use a similar system as the one for checking items
             if results_screen != b'\x00' and not self.in_results_screen:
                 current_level = int.from_bytes(level_data, byteorder='little')
                 location_id = self.level_to_location.get(current_level)
@@ -263,16 +352,22 @@ class MMZero3Client(BizHawkClient):
                     found_mask = 1 << disk_in_byte       # 0x01, 0x02, 0x04, 0x08
 
                     # Update inventory: only the found bit, everything else untouched
-                    self.cervau_inventory[byte_index] |= found_mask
+                    self.cerveau_inventory[byte_index] |= found_mask
 
                     self.collected_disks += 1
+
+                    # Send notification to player
+                    await bizhawk.write(
+                        ctx.bizhawk_ctx,
+                        [(0x0371E5, [item.item], "Combined WRAM")]
+                    )
 
             
                 # If the item is an eReader bitflag item
                 if item.item >= 111 and item.item <= 140:
-                    if item.item not in self.bitflags:
+                    if item.item not in self.BIT_FLAGS:
                         continue
-                    word_index, bit = self.bitflags[item.item]
+                    word_index, bit = self.BIT_FLAGS[item.item]
 
                     byte_index = word_index * 2
                     mask = 1 << (bit - 1) 
@@ -283,26 +378,18 @@ class MMZero3Client(BizHawkClient):
                         self.eReader_bitflag_inventory[byte_index + 1] |= (mask >> 8)
 
                 # If the item is an eReader byte map item
-                if item.item in self.byte_map:
-                    addr, value = self.byte_map[item.item]
+                if item.item in self.BYTE_MAP:
+                    addr, value = self.BYTE_MAP[item.item]
                     self.eReader_byte_map_inventory[addr - 0x02474] = value
-
+        
             self.received_index = len(ctx.items_received)
 
             if needs_sync:
                 await self.sync_game_state(ctx)
             self.prev_level_value = is_in_hub
 
-            # Needs to be read last in order to compare new items
-            self.zero_inventory = (await bizhawk.read(
-                ctx.bizhawk_ctx,
-                [(0x0371B8, 45, "Combined WRAM")])
-            )[0]
-
-            self.cervau_inventory = bytearray(
-                (await bizhawk.read(ctx.bizhawk_ctx, [(0x0371E8, 45, "Combined WRAM")]))[0]
-            )
-
+            self.disks_found = disks_found
+            self.dialogue_id = dialogue_id
 
         except bizhawk.RequestFailedError:
             pass
@@ -323,41 +410,11 @@ class MMZero3Client(BizHawkClient):
                 inventory[byte_index] |= (1 << bit_position)
 
         return inventory
-        
-    async def item_found(self, ctx, zero_inventory):
-        """Find item that was picked up and send the location check for that item"""
-
-        new_save_data = (await bizhawk.read(
-            ctx.bizhawk_ctx,
-            [(0x0371B8, 45, "Combined WRAM")])
-        )[0]
-
-        new_locations = []
-        for i in range(len(new_save_data)):
-            # Only look at the lower nibble (0x0F mask)
-            old_bits = zero_inventory[i] & 0x0F
-            new_bits = new_save_data[i] & 0x0F
-
-            changed_bits = new_bits & (~old_bits)  # Bits that were 0 and are now 1
-            for bit in range(4):
-                if changed_bits & (1 << bit):
-                    location_id = i * 4 + bit + 1 
-                    new_locations.append(location_id)
-
-        if new_locations:
-            await ctx.send_msgs([{
-                "cmd": "LocationChecks",
-                "locations": new_locations
-            }])
-
-        # Clear update in memory now that it has been read
-        await bizhawk.write(
-            ctx.bizhawk_ctx,
-            [(0x0371E5, [0,0], "Combined WRAM")]
-        )
 
     async def sync_game_state(self, ctx):
-        """Syncronizes the player's collected items and inventory."""
+        """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
+        
+        Done whenever the player collects or receives an item, or transisions between stages."""
 
         print("syncing")
         self.synced_hub = False
@@ -371,7 +428,7 @@ class MMZero3Client(BizHawkClient):
 
         await bizhawk.write(
             ctx.bizhawk_ctx,
-            [(0x0371E8, list(self.cervau_inventory), "Combined WRAM")]
+            [(0x0371E8, list(self.cerveau_inventory), "Combined WRAM")]
         )
 
         await bizhawk.write(
