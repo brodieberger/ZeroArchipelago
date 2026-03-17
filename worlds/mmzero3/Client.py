@@ -142,42 +142,51 @@ class MMZero3Client(BizHawkClient):
     # Which location check to give based on dialogue. (So that no disks can be missed based on dialogue)
     # Dialogue ID: location check to give (NPC)
     DIALOGUE_LOCATION_MAP = {
-        # 241: 107 (Andrew)
+        0x241: 107, #(Andrew)
         0x242: 107,
         0x243: 107,
+        0x2CF: 107,
         0x2D0: 107,
         0x2D1: 107,
         0x2D2: 107,
 
-        # 247: 116 (Alouette)
+        0x247: 116, #(Alouette)
+        0x248: 116,
         0x249: 116,
         0x24A: 116,
 
-        # 24e: 169 (Hibou)
+        0x24e: 169, # (Hibou)
+        0x24f: 160,
         0x250: 169,
         0x251: 169,
 
-        # 253: 175 (Menart)
+        0x253: 175, # (Menart)
+        0x254: 175,
         0x255: 175,
         0x256: 175,
         0x257: 175,
         0x268: 175,
 
-        # 25a: 167 (Rocinolle)
+        0x25a: 167, # (Rocinolle)
         0x25C: 167,
+        0x25d: 44, #(Rocinolle unmissable)
+        0x25e: 167,
 
-        # 25d: 44 (Rocinolle unmissable)
+        0x271: 173, #(Hirondelle unmissable)
 
-        # 271: 173 (Hirondelle unmissable)
+        0x284: 174, #(Doigt unmissable)
 
-        # 284: 174 (Doigt unmissable)
-
-        # 2a6: 58 (Tower guy)
+        0x2a6: 58, # (Tower guy)
         0x2A9: 58,
         0x2AB: 58,
 
-        # 2b1: 23 (guy in room 02D)
+        0x2b1: 23, #(guy in room 02D)
         0x2B3: 23,
+
+        #207: 92 (cerveau),
+        0x20b: 92,
+        0x20c: 92,
+        0x20d: 92,
     }
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
@@ -223,6 +232,12 @@ class MMZero3Client(BizHawkClient):
                 [(0x030164, 1, "Combined WRAM")] 
             ))[0]
 
+            # AP inventory used in disk analysis screen
+            self.cerveau_inventory = bytearray((await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [(0x0371E8, 45, "Combined WRAM")]
+            ))[0])
+
             # Read if the player is in results screen
             results_screen = (await bizhawk.read(
                 ctx.bizhawk_ctx,
@@ -253,8 +268,7 @@ class MMZero3Client(BizHawkClient):
                         new_locations.append(new+1)
 
                 if new_locations:
-                    print("New disks:", new_locations)
-
+                    #print("New disks:", new_locations)
                     await ctx.send_msgs([{
                         "cmd": "LocationChecks",
                         "locations": new_locations
@@ -266,30 +280,16 @@ class MMZero3Client(BizHawkClient):
 
             # Check if an NPC has given a disk (or is talked to after their reward period is expired)
             if dialogue_id != self.dialogue_id:
-                print("NPC DIALOGUE CHANGE")
-
-                print("New raw:", list(dialogue_id))
-                print("Old raw:", list(self.dialogue_id))
 
                 new_dialogue = int.from_bytes(dialogue_id, "little")
-                old_dialogue = int.from_bytes(self.dialogue_id, "little")
-
-                print("New dialogue:", new_dialogue, hex(new_dialogue))
-                print("Old dialogue:", old_dialogue, hex(old_dialogue))
-
                 location = self.DIALOGUE_LOCATION_MAP.get(new_dialogue)
 
                 if location is not None:
-                    print("Mapped location reward:", location)
-
                     await ctx.send_msgs([{
                         "cmd": "LocationChecks",
                         "locations": [location]
                     }])
-                else:
-                    print("Dialogue not mapped to a location")
 
-                # Update stored state
                 self.dialogue_id = dialogue_id
 
             # Check if the player has completed a level
@@ -343,6 +343,7 @@ class MMZero3Client(BizHawkClient):
                 needs_sync = True
                 item = ctx.items_received[i]
 
+                # Disk items
                 if 1 <= item.item <= 180:
                     disk_number = item.item - 1           # 0-based index
                     byte_index = disk_number // 4         # which byte
@@ -416,7 +417,6 @@ class MMZero3Client(BizHawkClient):
         
         Done whenever the player collects or receives an item, or transisions between stages."""
 
-        print("syncing")
         self.synced_hub = False
         self.in_results_screen = False
 
