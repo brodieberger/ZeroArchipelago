@@ -38,7 +38,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
     leave_level_patch(patch)
     separate_inventory_patch(patch)
     disk_collection_npc_patch(patch)
-    disk_detection_loop(patch)
+    if world.options.reward_notification:
+        disk_detection_loop(patch)
 
     patch.write_file("token_data.bin", patch.get_token_binary())
 
