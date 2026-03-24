@@ -150,6 +150,20 @@ DIALOGUE_LOCATION_MAP = {
     0x20d: 92,
 }
 
+BODY_CHIP_MAP = {
+    197: (0, 0x20),  # Ice
+    198: (0, 0x08),  # Thunder
+    199: (0, 0x10),  # Flame
+    200: (0, 0x02),  # Light
+    201: (0, 0x04),  # Absorber
+}
+
+FOOT_CHIP_MAP = {
+    202: (0, 0x20),  # Spike
+    203: (0, 0x10),  # Quick
+    204: (0, 0x04),  # Double Jump
+    205: (0, 0x08),  # Shadow Dash
+}
 
 EX_SKILL_MAP = {
     206: (0, 0x04),  # Burst Shot
@@ -166,17 +180,29 @@ EX_SKILL_MAP = {
     217: (0, 0x10),  # Gale Attack
 }
 
-BODY_CHIP_MAP = {
-    197: (0, 0x20),  # Ice
-    198: (0, 0x08),  # Thunder
-    199: (0, 0x10),  # Flame
-    200: (0, 0x02),  # Light
-    201: (0, 0x04),  # Absorber
+LOCATION_TO_EXSKILL = {
+    182: 206,
+    183: 207,
+    184: 208,
+    185: 209,
+    187: 210,
+    188: 211,
+    189: 212,
+    190: 213,
+    191: 214,
+    192: 215,
+    193: 216,
+    194: 217
 }
 
-FOOT_CHIP_MAP = {
-    202: (0, 0x20),  # Spike
-    203: (0, 0x10),  # Quick
-    204: (0, 0x04),  # Double Jump
-    205: (0, 0x08),  # Shadow Dash
+LOCATION_TO_CHIP = {
+    182: 199,
+    183: 197,
+    184: 198,
+    185: 200,
+    190: 203, 
+    191: 204,
+    192: 202, 
+    193: 205,
+    194: 201
 }
