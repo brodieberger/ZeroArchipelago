@@ -119,7 +119,6 @@ class MMZero3Client(BizHawkClient):
                         new_locations.append(new+1)
 
                 if new_locations:
-                    #print("New disks:", new_locations)
                     await ctx.send_msgs([{
                         "cmd": "LocationChecks",
                         "locations": new_locations
@@ -144,6 +143,7 @@ class MMZero3Client(BizHawkClient):
                 self.dialogue_id = dialogue_id
 
             # Check if the player has completed a level
+            # TODO: This method of checking is prone to breaking using savestates
             if results_screen != b'\x00' and not self.in_results_screen:
                 current_level = int.from_bytes(level_data, byteorder='little')
                 location_id = LEVEL_TO_LOCATION.get(current_level)
@@ -156,7 +156,6 @@ class MMZero3Client(BizHawkClient):
                         "locations": [location_id]
                     }]) 
 
-                    #TODO test this
                     if LOCATION_TO_CHIP.get(location_id):
                         # Send necessary chip
                         await ctx.send_msgs([{
@@ -164,11 +163,11 @@ class MMZero3Client(BizHawkClient):
                             "locations": [LOCATION_TO_CHIP.get(location_id)]
                         }]) 
                     
-                    #TODO get if exskill should be rewarded
-                    await ctx.send_msgs([{
-                        "cmd": "LocationChecks",
-                        "locations": [LOCATION_TO_EXSKILL.get(location_id)]
-                    }]) 
+                    if await self.should_reward_exskill(ctx) or self.easy_ex_skill == 1:
+                        await ctx.send_msgs([{
+                            "cmd": "LocationChecks",
+                            "locations": [LOCATION_TO_EXSKILL.get(location_id)]
+                        }]) 
 
                 # Completion condition. Runs If the level that was finished was the last level
                 # Logic for Default game goal
@@ -252,24 +251,16 @@ class MMZero3Client(BizHawkClient):
                 # EX Skills
                 if item.item in EX_SKILL_MAP:
                     byte_index, mask = EX_SKILL_MAP[item.item]
-
-                    print(f"Applying EX Skill {item.item} -> byte {byte_index}, mask {hex(mask)}")
-
                     self.ex_skill_inventory[byte_index] |= mask
 
                 # Body Chips
                 if item.item in BODY_CHIP_MAP:
                     byte_index, mask = BODY_CHIP_MAP[item.item]
-
-                    print(f"Applying Body Chip {item.item} -> mask {hex(mask)}")
-
                     self.body_inventory[byte_index] |= mask
 
                 # Foot Chips
                 if item.item in FOOT_CHIP_MAP:
                     byte_index, mask = FOOT_CHIP_MAP[item.item]
-
-                    print(f"Applying Foot Chip {item.item} -> mask {hex(mask)}")
 
                     self.foot_inventory = bytearray((await bizhawk.read(
                         ctx.bizhawk_ctx,
@@ -306,6 +297,29 @@ class MMZero3Client(BizHawkClient):
                 inventory[byte_index] |= (1 << bit_position)
 
         return inventory
+    
+    async def should_reward_exskill(self, ctx) -> bool:
+        """Determine if an EX Skill should be rewarded after a level."""
+
+        level_rank, elf_flag = await bizhawk.read(
+            ctx.bizhawk_ctx,
+            [
+                (0x30165, 1, "Combined WRAM"),
+                (0x3733C, 1, "Combined WRAM"),
+            ]
+        )
+        if level_rank[0] > 85:
+            return True
+
+        # If the player has used a rank increasing cyber elf
+        if elf_flag[0] == 0x01:
+            await bizhawk.write(
+                ctx.bizhawk_ctx,
+                [(0x3733C, [0], "Combined WRAM")]
+            )
+            return True
+
+        return False
 
     async def sync_game_state(self, ctx) -> None:
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
@@ -314,11 +328,6 @@ class MMZero3Client(BizHawkClient):
 
         self.in_results_screen = False
 
-        if self.easy_ex_skill == 1:
-            await bizhawk.write(
-                ctx.bizhawk_ctx,
-                [(0x0372B1, [0x06], "Combined WRAM")]
-            )
         await bizhawk.write(
             ctx.bizhawk_ctx,
             [(0x0371E8, list(self.cerveau_inventory), "Combined WRAM")]
