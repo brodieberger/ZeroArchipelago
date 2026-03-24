@@ -36,8 +36,8 @@ class MMZero3Client(BizHawkClient):
     eReader_bitflag_inventory = [0] * 12 
     eReader_byte_map_inventory = [0] * 10
     ex_skill_inventory = bytearray(2)
-    body_inventory = bytearray(1)
-    foot_inventory = bytearray(1)
+    body_inventory = bytearray([0x01])
+    foot_inventory = bytearray([0x01])
     
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
