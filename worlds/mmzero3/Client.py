@@ -6,7 +6,7 @@ import worlds._bizhawk as bizhawk
 from .Options import MMZero3Options
 from worlds._bizhawk.client import BizHawkClient
 
-from .data import *
+from .Data import *
 
 if TYPE_CHECKING:
     from worlds._bizhawk.context import BizHawkClientContext
