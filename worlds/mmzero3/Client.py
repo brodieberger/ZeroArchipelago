@@ -189,6 +189,36 @@ class MMZero3Client(BizHawkClient):
         0x20d: 92,
     }
 
+    EX_SKILL_MAP = {
+        206: (0, 0x04),  # Burst Shot
+        207: (0, 0x80),  # Throw Blade
+        208: (0, 0x20),  # Saber Smash
+        209: (1, 0x01),  # 1000 Slash
+        210: (1, 0x04),  # Shield Sweep
+        211: (0, 0x40),  # Split Heavens
+        212: (0, 0x08),  # Blizzard Arrow
+        213: (0, 0x01),  # Reflect Laser
+        214: (1, 0x02),  # Soul Launcher
+        215: (1, 0x08),  # Orbit Shield
+        216: (0, 0x02),  # V-Shot
+        217: (0, 0x10),  # Gale Attack
+    }
+
+    BODY_CHIP_MAP = {
+        197: (0, 0x20),  # Ice
+        198: (0, 0x08),  # Thunder
+        199: (0, 0x10),  # Flame
+        200: (0, 0x02),  # Light
+        201: (0, 0x04),  # Absorber
+    }
+
+    FOOT_CHIP_MAP = {
+        202: (0, 0x20),  # Spike
+        203: (0, 0x10),  # Quick
+        204: (0, 0x04),  # Double Jump
+        205: (0, 0x08),  # Shadow Dash
+    }
+
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
             # Check ROM name/patch version
