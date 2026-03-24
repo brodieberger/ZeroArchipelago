@@ -125,7 +125,7 @@ class MMZero3Client(BizHawkClient):
                         "locations": new_locations
                     }])
 
-                    needs_sync = True
+                    #needs_sync = True
 
                 self.disks_found = disks_found
 
@@ -255,6 +255,11 @@ class MMZero3Client(BizHawkClient):
 
                     print(f"Applying Foot Chip {item.item} -> mask {hex(mask)}")
 
+                    self.foot_inventory = bytearray((await bizhawk.read(
+                        ctx.bizhawk_ctx,
+                        [(0x03806d, 1, "Combined WRAM")] 
+                    ))[0])
+
                     self.foot_inventory[byte_index] |= mask
 
             self.received_index = len(ctx.items_received)
@@ -289,7 +294,7 @@ class MMZero3Client(BizHawkClient):
     async def sync_game_state(self, ctx):
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
         
-        Done whenever the player collects or receives an item, or transisions between stages."""
+        Done whenever the player collects or receives an item, or transitions between stages."""
 
         self.synced_hub = False
         self.in_results_screen = False
@@ -299,17 +304,14 @@ class MMZero3Client(BizHawkClient):
                 ctx.bizhawk_ctx,
                 [(0x0372B1, [0x06], "Combined WRAM")]
             )
-
         await bizhawk.write(
             ctx.bizhawk_ctx,
             [(0x0371E8, list(self.cerveau_inventory), "Combined WRAM")]
         )
-
         await bizhawk.write(
             ctx.bizhawk_ctx,
             [(0x0371B8, list(self.get_items(ctx)), "Combined WRAM")]
         )
-
         await bizhawk.write(
             ctx.bizhawk_ctx,
             [(0x02438, list(self.eReader_bitflag_inventory), "Combined WRAM")]
@@ -317,4 +319,16 @@ class MMZero3Client(BizHawkClient):
         await bizhawk.write(
             ctx.bizhawk_ctx,
             [(0x02474, self.eReader_byte_map_inventory, "Combined WRAM")]
+        )
+        await bizhawk.write(
+            ctx.bizhawk_ctx,
+            [(0x038068, self.ex_skill_inventory, "Combined WRAM")]
+        )
+        await bizhawk.write(
+            ctx.bizhawk_ctx,
+            [(0x03806C, self.body_inventory, "Combined WRAM")]
+        )
+        await bizhawk.write(
+            ctx.bizhawk_ctx,
+            [(0x03806D, self.foot_inventory, "Combined WRAM")]
         )
