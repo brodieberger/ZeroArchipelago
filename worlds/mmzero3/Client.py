@@ -25,11 +25,11 @@ class MMZero3Client(BizHawkClient):
     disks_found = bytearray(10)
     dialogue_id = bytearray(2)
 
+    options_set = False
     required_disks = 80 # Will be overwritten from settings
     goal_type = 0 # will also be overwritten. 0 is for default (kill boss with enough disks), 1 is vanilla (just kill the boss)
     easy_ex_skill = 0
     
-    options_set = False
     received_index = 0
     collected_disks = 0
 
@@ -149,9 +149,25 @@ class MMZero3Client(BizHawkClient):
                 location_id = LEVEL_TO_LOCATION.get(current_level)
 
                 if location_id:
+
+                    # Send completion item
                     await ctx.send_msgs([{
                         "cmd": "LocationChecks",
                         "locations": [location_id]
+                    }]) 
+
+                    #TODO test this
+                    if LOCATION_TO_CHIP.get(location_id):
+                        # Send necessary chip
+                        await ctx.send_msgs([{
+                            "cmd": "LocationChecks",
+                            "locations": [LOCATION_TO_CHIP.get(location_id)]
+                        }]) 
+                    
+                    #TODO get if exskill should be rewarded
+                    await ctx.send_msgs([{
+                        "cmd": "LocationChecks",
+                        "locations": [LOCATION_TO_EXSKILL.get(location_id)]
                     }]) 
 
                 # Completion condition. Runs If the level that was finished was the last level
@@ -291,12 +307,11 @@ class MMZero3Client(BizHawkClient):
 
         return inventory
 
-    async def sync_game_state(self, ctx):
+    async def sync_game_state(self, ctx) -> None:
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
         
         Done whenever the player collects or receives an item, or transitions between stages."""
 
-        self.synced_hub = False
         self.in_results_screen = False
 
         if self.easy_ex_skill == 1:
