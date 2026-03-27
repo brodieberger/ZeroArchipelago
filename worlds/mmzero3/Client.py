@@ -383,23 +383,16 @@ class MMZero3Client(BizHawkClient):
             [(0x03806D, self.foot_inventory, "Combined WRAM")]
         )
 
-        disk_1 = (await bizhawk.read(
-                ctx.bizhawk_ctx,
-                [(0x3805C, 1, "Combined WRAM")] 
-            ))[0]
-        
-        disk_2 = (await bizhawk.read(
-                ctx.bizhawk_ctx,
-                [(0x3805D, 1, "Combined WRAM")] 
-            ))[0]
-        
-        if disk_1 == b'\xFF':
-            await bizhawk.write(
-                ctx.bizhawk_ctx,
-                [(0x3805C, [0], "Combined WRAM")]
-            )
-        if disk_2 == b'\xFF':
-            await bizhawk.write(
-                ctx.bizhawk_ctx,
-                [(0x3805D, [0], "Combined WRAM")]
-            )
+        # Update Subtanks
+        received_item_ids = {item.item for item in ctx.items_received}
+
+        tank_1, tank_2 = await bizhawk.read(ctx.bizhawk_ctx, [
+            (0x3805C, 1, "Combined WRAM"),
+            (0x3805D, 1, "Combined WRAM")
+        ])
+
+        if tank_1 == b'\xFF' and 218 in received_item_ids:
+            await bizhawk.write(ctx.bizhawk_ctx, [(0x3805C, [0], "Combined WRAM")])
+
+        if tank_2 == b'\xFF' and 219 in received_item_ids:
+            await bizhawk.write(ctx.bizhawk_ctx, [(0x3805D, [0], "Combined WRAM")])
