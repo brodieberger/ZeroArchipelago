@@ -250,13 +250,17 @@ item_data_table: Dict[str, MMZero3ItemData] = {
     "EX Skill: V-Shot": MMZero3ItemData(code=216, type=ItemClassification.useful),
     "EX Skill: Gale Attack": MMZero3ItemData(code=217, type=ItemClassification.useful),
 
+    # Other Items
+    "Subtank #1": MMZero3ItemData(code=218, type=ItemClassification.progression),
+    "Subtank #2": MMZero3ItemData(code=219, type=ItemClassification.progression),
+
     # Weapons
-    "Buster": MMZero3ItemData(code=218, type=ItemClassification.progression),
-    "Z-Saber": MMZero3ItemData(code=219, type=ItemClassification.progression),
-    "Recoil Rod": MMZero3ItemData(code=220, type=ItemClassification.progression),
-    "Shield Boomerang": MMZero3ItemData(code=221, type=ItemClassification.progression),
+    "Buster": MMZero3ItemData(code=220, type=ItemClassification.progression),
+    "Z-Saber": MMZero3ItemData(code=221, type=ItemClassification.progression),
+    "Recoil Rod": MMZero3ItemData(code=222, type=ItemClassification.progression),
+    "Shield Boomerang": MMZero3ItemData(code=223, type=ItemClassification.progression),
 
-
+    # Filler Items
     "100 Energy Crystals (Unimplemented)": MMZero3ItemData(
         code=301,
         can_create=lambda world: False  # Only created from `get_filler_item_name`.
