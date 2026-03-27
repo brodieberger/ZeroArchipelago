@@ -71,6 +71,12 @@ class MMZero3Client(BizHawkClient):
                 [(0x3DF94, 10, "Combined WRAM")])
             )[0]
 
+            # Check non disk items
+            other_items_found = (await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [(0x3733D, 1, "Combined WRAM")] 
+            ))[0]
+
             # Most recent npc dialogue. Used to reward items
             dialogue_id = (await bizhawk.read(
                 ctx.bizhawk_ctx,
@@ -101,7 +107,7 @@ class MMZero3Client(BizHawkClient):
                 [(0x042AE2, 1, "Combined WRAM")] 
             ))[0]
 
-            # Will be changed to true if the gamestate needs to be syncronised.
+            # Will be changed to true if the gamestate needs to be synchronized.
             # Either on some update or the player changing stages.
             needs_sync = False
             
@@ -110,7 +116,7 @@ class MMZero3Client(BizHawkClient):
             if self.prev_level_value != is_in_hub:
                 needs_sync = True
 
-            # Check if an item was picked up in a level
+            # Check if a disk was picked up in a level
             if disks_found != self.disks_found and demo_screen != b'\x00':
                 new_locations = []
 
@@ -124,9 +130,29 @@ class MMZero3Client(BizHawkClient):
                         "locations": new_locations
                     }])
 
-                    #needs_sync = True
-
                 self.disks_found = disks_found
+
+            # Check if non disk item was collected
+            if other_items_found != b'\x00':
+
+                # Subtank 1 (Old Residential Area)
+                if other_items_found == b'\x01':
+                    await ctx.send_msgs([{
+                            "cmd": "LocationChecks",
+                            "locations": [218]
+                        }])
+                    
+                # Subtank 2 (Forest of Anatre)
+                elif (other_items_found == b'\x02'):
+                    await ctx.send_msgs([{
+                            "cmd": "LocationChecks",
+                            "locations": [219]
+                        }])
+                    
+                await bizhawk.write(
+                    ctx.bizhawk_ctx,
+                    [(0x3733D, [0], "Combined WRAM")]
+                )
 
             # Check if an NPC has given a disk (or is talked to after their reward period is expired)
             if dialogue_id != self.dialogue_id:
@@ -356,3 +382,24 @@ class MMZero3Client(BizHawkClient):
             ctx.bizhawk_ctx,
             [(0x03806D, self.foot_inventory, "Combined WRAM")]
         )
+
+        disk_1 = (await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [(0x3805C, 1, "Combined WRAM")] 
+            ))[0]
+        
+        disk_2 = (await bizhawk.read(
+                ctx.bizhawk_ctx,
+                [(0x3805D, 1, "Combined WRAM")] 
+            ))[0]
+        
+        if disk_1 == b'\xFF':
+            await bizhawk.write(
+                ctx.bizhawk_ctx,
+                [(0x3805C, [0], "Combined WRAM")]
+            )
+        if disk_2 == b'\xFF':
+            await bizhawk.write(
+                ctx.bizhawk_ctx,
+                [(0x3805D, [0], "Combined WRAM")]
+            )
