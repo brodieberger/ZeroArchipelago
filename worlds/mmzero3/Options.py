@@ -22,6 +22,24 @@ class EasyExSkill(Toggle):
     """Give the player an S-Rank at the end of the level. Always gives EX-Skill. Note this can also make certain bosses harder, so don't consider this an easy mode!"""
     display_name = "Always have S-Rank"
 
+class WeaponShuffle(Toggle):
+    """Shuffles Zero's four weapons into the item pool."""
+    display_name = "Shuffle Weapons"
+    default = True
+
+class StartingWeapons(Choice):
+    """
+    Zero's starting weapons
+    """
+    display_name = "Starting Weapons"
+    option_buster = 0
+    option_saber = 1
+    option_recoil_rod = 2
+    option_shield_boomerang = 3
+    option_buster_saber = 4
+    default = "random"
+    
+
 class RewardNotification(Toggle):
     """Will notify the player of earned Archipelago items. Currently the text is very slow and screen obscuring, so not recommended."""
     display_name = "In-game reward notification"
@@ -31,4 +49,6 @@ class MMZero3Options(PerGameCommonOptions):
     goal: Goal
     required_secret_disks: RequiredSecretDisks
     easy_ex_skill: EasyExSkill
+    weapon_shuffle: WeaponShuffle
+    starting_weapons: StartingWeapons
     reward_notification: RewardNotification
