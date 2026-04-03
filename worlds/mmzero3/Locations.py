@@ -269,6 +269,10 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "A+ Rank Clear: Sunken Library": MMZero3LocationData(region="Sunken Library", address=216),
     "A+ Rank Clear: Giant Elevator": MMZero3LocationData(region="Giant Elevator", address=217),
     #"A+ Rank Clear: Sub Arcadia": MMZero3LocationData(region="Giant Elevator", address=xxx), # no reward
+
+    # Weapons
+    "Collect Weapons from Cerveau": MMZero3LocationData(region="Resistance Base", address=218),
+
 }
 
 location_table = {name: data.address for name, data in location_data_table.items() if data.address is not None}
