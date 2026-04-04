@@ -256,7 +256,11 @@ item_data_table: Dict[str, MMZero3ItemData] = {
     "Recoil Rod": MMZero3ItemData(code=220, type=ItemClassification.progression),
     "Shield Boomerang": MMZero3ItemData(code=221, type=ItemClassification.progression),
 
+    # Other Items
+    "Subtank #1": MMZero3ItemData(code=218, type=ItemClassification.progression),
+    "Subtank #2": MMZero3ItemData(code=219, type=ItemClassification.progression),
 
+    # Filler Items
     "100 Energy Crystals (Unimplemented)": MMZero3ItemData(
         code=301,
         can_create=lambda world: False  # Only created from `get_filler_item_name`.

@@ -40,6 +40,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
     disk_collection_npc_patch(patch)
     if world.options.reward_notification:
         disk_detection_loop(patch)
+    EXSkill_chips_patch(patch)
 
     patch.write_file("token_data.bin", patch.get_token_binary())
 
@@ -62,6 +63,13 @@ def general_changes_patch(patch: MMZero3ProcedurePatch) -> None:
         APTokenTypes.WRITE,
         0x236EE,
         bytes([0x00, 0x00]),
+    )
+
+    # Collecting subtanks no longer rewards them to the player, sets RAM address 0203733D to be 1/2 instead.
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xe0882,
+        bytes([0x01,0x20,0x02,0x49, 0x08, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0xe0, 0x3d, 0x73, 0x03, 0x02, 0xc0, 0xf5, 0x02, 0x02, 0x08, 0x28, 0x09, 0xd1, 0x02, 0x20, 0x03, 0x49, 0x08, 0x70, 0x05, 0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3d, 0x73, 0x03, 0x02]),
     )
 
 def leave_level_patch(patch: MMZero3ProcedurePatch) -> None:
@@ -214,6 +222,36 @@ def disk_detection_loop(patch: MMZero3ProcedurePatch) -> None:
         bytes([0x00]),
     )
 
+def EXSkill_chips_patch(patch: MMZero3ProcedurePatch) -> None:
+    """Prevents EXSkills and Chips from being rewarded by the game, so that they can be rewarded by Archipelago instead."""
+    
+    # NO OP Reward Chip
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x2437C,
+        bytes([0x00,0x00,0x00,0x00]),
+    )
+
+    # NO OP EX Skill
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x24392,
+        bytes([0x00,0x00,0x00,0x00]),
+    )     
+    
+    # Branches to custom code on using rank changing cyber elf.
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xe34ac,
+        bytes([0x22, 0xF0, 0x86, 0xFC]),
+    ) 
+
+    # Saves cyber elf usage into memory address 0203733c
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x105DBC,
+        bytes([0x05, 0x20, 0x48, 0x70, 0x01, 0x49, 0x01, 0x20, 0x08, 0x70, 0xf7, 0x46, 0x3c, 0x73, 0x03, 0x02]),
+    ) 
 
 class MMZero3Settings(settings.Group):
     class MMZero3RomFile(settings.UserFilePath):
