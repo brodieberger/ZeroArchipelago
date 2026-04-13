@@ -45,8 +45,8 @@ class MMZero3World(World):
         item_pool: List[MMZero3Item] = []
 
         # TODO this should actually give the starting weapon
-        starting_weapon = self.options.starting_weapons.value
-        self.multiworld.push_precollected(self.create_item(str(starting_weapon)))
+        #starting_weapon = self.options.starting_weapons.value
+        #self.multiworld.push_precollected(self.create_item(str(starting_weapon)))
         
         # Exclude locked items from the item pool
         locked_item_names = {data.locked_item for data in locked_locations.values() if data.locked_item}
