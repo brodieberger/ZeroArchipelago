@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Choice, Range, Toggle, PerGameCommonOptions
+from Options import Choice, Range, Toggle, OptionSet, PerGameCommonOptions
 
 class Goal(Choice):
     """
@@ -27,17 +27,15 @@ class WeaponShuffle(Toggle):
     display_name = "Shuffle Weapons"
     default = True
 
-class StartingWeapons(Choice):
-    """
-    Zero's starting weapons
-    """
-    display_name = "Starting Weapons"
-    option_buster = 0
-    option_saber = 1
-    option_recoil_rod = 2
-    option_shield_boomerang = 3
-    option_buster_saber = 4
-    default = "random"
+class StartingWeapons(OptionSet):
+    """Zero's starting weapons."""
+    display_name = "Starting Weapons."
+    valid_keys = {
+        "Buster",
+        "Saber",
+        "Recoil Rod",
+        "Shield Boomerang",
+    }
     
 
 class RewardNotification(Toggle):

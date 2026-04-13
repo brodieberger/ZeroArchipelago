@@ -273,7 +273,8 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     #"A+ Rank Clear: Sub Arcadia": MMZero3LocationData(region="Giant Elevator", address=xxx), # no reward
 
     # Weapons
-    "Collect Weapons from Cerveau": MMZero3LocationData(region="Resistance Base", address=218),
+    "Collect Recoil Rod": MMZero3LocationData(region="Resistance Base", address=218),
+    "Collect Shield Boomerang": MMZero3LocationData(region="Resistance Base", address=219),
 
 }
 
