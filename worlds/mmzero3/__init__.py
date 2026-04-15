@@ -18,6 +18,15 @@ from worlds.Files import APProcedurePatch
 
 class MMZero3WebWorld(WebWorld):
     theme = "ice"
+    setup_en = Tutorial(
+        "Multiworld Setup Guide",
+        "A guide to setting up the Mega Man Zero 3 Randomizer connected to an Archipelago Multiworld.",
+        "English",
+        "setup_en.md",
+        "setup/en",
+        ["Stingrays110"]
+    )
+    tutorials = [setup_en]
     bug_report_page = "https://github.com/brodieberger/ZeroArchipelago/"
 
 
