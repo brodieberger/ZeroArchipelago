@@ -21,21 +21,6 @@ class RequiredSecretDisks(Range):
 class EasyExSkill(Toggle):
     """Rewards player with EX-Skill at the end of a level regardless of ranking. Currently recommended, as otherwise EXSkills are missable unless you load an earlier save or use savestates. This will be fixed later."""
     display_name = "Always reward EX-Skill"
-
-class WeaponShuffle(Toggle):
-    """Shuffles Zero's four weapons into the item pool."""
-    display_name = "Shuffle Weapons"
-    default = True
-
-class StartingWeapons(OptionSet):
-    """Zero's starting weapons."""
-    display_name = "Starting Weapons."
-    valid_keys = {
-        "Buster",
-        "Saber",
-        "Recoil Rod",
-        "Shield Boomerang",
-    }
     
 
 class RewardNotification(Toggle):
@@ -47,6 +32,4 @@ class MMZero3Options(PerGameCommonOptions):
     goal: Goal
     required_secret_disks: RequiredSecretDisks
     easy_ex_skill: EasyExSkill
-    weapon_shuffle: WeaponShuffle
-    starting_weapons: StartingWeapons
     reward_notification: RewardNotification
