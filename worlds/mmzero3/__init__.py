@@ -44,28 +44,45 @@ class MMZero3World(World):
     def create_items(self) -> None:
         item_pool: List[MMZero3Item] = []
 
-        # TODO this should actually give the starting weapon
-        #starting_weapon = self.options.starting_weapons.value
-        #self.multiworld.push_precollected(self.create_item(str(starting_weapon)))
-        
-        # Exclude locked items from the item pool
-        locked_item_names = {data.locked_item for data in locked_locations.values() if data.locked_item}
-        
+        # --- starting weapons ---
+        starting_weapons = set(self.options.starting_weapons.value)
+        starting_weapons &= self.options.starting_weapons.valid_keys
+
+        if not starting_weapons:
+            starting_weapons = {"Buster", "Z-Saber"}
+
+        for weapon in starting_weapons:
+            self.multiworld.push_precollected(self.create_item(weapon))
+
+        # --- locked items ---
+        locked_item_names = {
+            data.locked_item for data in locked_locations.values() if data.locked_item
+        }
+
+        # prevent duplication
+        locked_item_names |= starting_weapons
+
+        # --- item pool ---
         for name, item in item_data_table.items():
             if item.code and item.can_create(self) and name not in locked_item_names:
                 item_pool.append(self.create_item(name))
 
-        # Add the items to the pool
         self.multiworld.itempool += item_pool
 
-        # Calculate how many filler items are needed
+        # --- filler ---
         total_locations = len([loc for loc in location_data_table.values() if loc.can_create(self)])
-        total_items = len(item_pool) + len(locked_item_names)
+
+        total_items = len(item_pool)  # IMPORTANT FIX
+
         filler_count = total_locations - total_items
 
-        # Fill extra locations with filler items if needed
+        if filler_count < 0:
+            raise Exception(f"Too many items: {total_items} > {total_locations}")
+
         for _ in range(filler_count):
-            self.multiworld.itempool.append(self.create_item(self.get_filler_item_name()))
+            self.multiworld.itempool.append(
+                self.create_item(self.get_filler_item_name())
+            )
 
     def create_regions(self) -> None:
         # Create regions.

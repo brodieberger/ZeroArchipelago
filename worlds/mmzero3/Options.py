@@ -28,11 +28,16 @@ class WeaponShuffle(Toggle):
     default = True
 
 class StartingWeapons(OptionSet):
-    """Zero's starting weapons."""
+    """Zero's starting weapons.
+    Buster
+    Z-Saber
+    Recoil Rod
+    Shield Boomerang
+    """
     display_name = "Starting Weapons."
     valid_keys = {
         "Buster",
-        "Saber",
+        "Z-Saber",
         "Recoil Rod",
         "Shield Boomerang",
     }
