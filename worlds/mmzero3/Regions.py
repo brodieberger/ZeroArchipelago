@@ -21,7 +21,7 @@ region_data_table: Dict[str, MMZero3RegionData] = {
     "Missile Factory": MMZero3RegionData(["Stage Group 2"]),
     
     # Next 3 selectable stages
-    "Stage Group 2": MMZero3RegionData(["Twilight Desert", "Frontline Ice Base", "Forest of Anatre", "Area X-2"]),
+    "Stage Group 2": MMZero3RegionData(["Resistance Base 2", "Twilight Desert", "Frontline Ice Base", "Forest of Anatre", "Area X-2"]),
     "Resistance Base 2": MMZero3RegionData(),
     "Twilight Desert": MMZero3RegionData(),
     "Frontline Ice Base": MMZero3RegionData(),
@@ -31,7 +31,7 @@ region_data_table: Dict[str, MMZero3RegionData] = {
     "Area X-2": MMZero3RegionData(["Stage Group 3"]),
 
     # Final 4 selectable stages
-    "Stage Group 3": MMZero3RegionData(["Energy Facility", "Snowy Plains", "Sunken Library", "Giant Elevator", "Sub Arcadia"]),
+    "Stage Group 3": MMZero3RegionData(["Resistance Base 3", "Energy Facility", "Snowy Plains", "Sunken Library", "Giant Elevator", "Sub Arcadia"]),
     "Resistance Base 3": MMZero3RegionData(),
     "Energy Facility": MMZero3RegionData(),
     "Snowy Plains": MMZero3RegionData(),
