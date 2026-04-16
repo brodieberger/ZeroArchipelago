@@ -38,7 +38,6 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Resistance Base 106: Left Corner of Rooftop": MMZero3LocationData(region="Resistance Base 1", address=106),
     "Resistance Base 107: Talk to Andrew - Mission Set 2": MMZero3LocationData(region="Resistance Base 2", address=107),
     "Resistance Base 116: Talk to Alouette - Mission Set 2": MMZero3LocationData(region="Resistance Base 2", address=116),
-    "Resistance Base 107: Talk to Andrew - Mission Set 2": MMZero3LocationData(region="Resistance Base 2", address=107),
     "Resistance Base 165: Near Alouette": MMZero3LocationData(region="Resistance Base 1", address=165),
     "Resistance Base 166: Near Cerveau": MMZero3LocationData(region="Resistance Base 1", address=166),
     "Resistance Base 167: Talk to Rocinolle - Mission Set 1/2": MMZero3LocationData(region="Resistance Base 1", address=167),
