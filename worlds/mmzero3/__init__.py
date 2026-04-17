@@ -8,7 +8,7 @@ from .Items import MMZero3Item, item_data_table, item_table
 from .Locations import MMZero3Location, location_data_table, location_table, locked_locations
 from .Options import MMZero3Options
 from .Regions import region_data_table
-from .Rom import MMZero3ProcedurePatch, MMZero3Settings
+from .Rom import MMZero3ProcedurePatch, MMZero3Settings, write_tokens
 from .Client import MMZero3Client
 
 import pkgutil
@@ -39,7 +39,7 @@ class MMZero3World(World):
     options_dataclass = MMZero3Options
     options: MMZero3Options
     settings_key = "MMZero3_settings"
-    settings: ClassVar[Rom.MMZero3Settings]
+    settings: ClassVar[MMZero3Settings]
 
     item_name_to_id = item_table
     location_name_to_id = location_table
@@ -146,7 +146,7 @@ class MMZero3World(World):
     def generate_output(self, output_directory: str) -> None:
         patch = Rom.MMZero3ProcedurePatch(player=self.player, player_name=self.player_name)
         patch.write_file("mmz3-ap.bsdiff4", pkgutil.get_data(__name__, "mmz3-ap.bsdiff4"))
-        Rom.write_tokens(self, patch)
+        write_tokens(self, patch)
         out_file_name = self.multiworld.get_out_file_name_base(self.player)
         patch.write(os.path.join(output_directory, f"{out_file_name}{patch.patch_file_ending}"))
 
