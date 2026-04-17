@@ -173,6 +173,7 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Energy Facility (8) 004: Girder Maze Top Left": MMZero3LocationData(region="Energy Facility", address=4),
     
     "Snowy Plains 162: 4th Shellcrawler Kill": MMZero3LocationData(region="Snowy Plains", address=162),
+    "Snowy Plains 130: 4th Pantheon Base Kill": MMZero3LocationData(region="Snowy Plains", address=130),
     "Snowy Plains (1) 003: 2nd Slope Secret Wall": MMZero3LocationData(region="Snowy Plains", address=3),
     "Snowy Plains (2) 029: 1st Rail Set Start": MMZero3LocationData(region="Snowy Plains", address=29),
     "Snowy Plains (3) 025: 1st Rail Set Middle": MMZero3LocationData(region="Snowy Plains", address=25),
