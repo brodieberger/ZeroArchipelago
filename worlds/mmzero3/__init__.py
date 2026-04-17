@@ -144,7 +144,7 @@ class MMZero3World(World):
         self.multiworld.completion_condition[self.player] = lambda state: state.has("Victory", self.player)
         
     def generate_output(self, output_directory: str) -> None:
-        patch = Rom.MMZero3ProcedurePatch(player=self.player, player_name=self.player_name)
+        patch = MMZero3ProcedurePatch(player=self.player, player_name=self.player_name)
         patch.write_file("mmz3-ap.bsdiff4", pkgutil.get_data(__name__, "mmz3-ap.bsdiff4"))
         write_tokens(self, patch)
         out_file_name = self.multiworld.get_out_file_name_base(self.player)
