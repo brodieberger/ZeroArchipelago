@@ -292,10 +292,14 @@ class MMZero3Client(BizHawkClient):
         except bizhawk.RequestFailedError:
             pass
 
-    def get_items(self, ctx) -> bytearray:
+    async def get_items(self, ctx) -> bytearray:
         """Updates items collected by Zero based on ctx.checked_locations. Used in case of player using savestates. 
         Only lower nibble (found state) is updated. Upper nibble (opened state) is untouched."""
-        inventory = bytearray(45)
+
+        inventory = bytearray((await bizhawk.read(
+                        ctx.bizhawk_ctx,
+                        [(0x0371B8, 45, "Combined WRAM")] 
+                    ))[0])
 
         for location_id in ctx.checked_locations:
             if location_id in {10, 16, 17}:
@@ -340,9 +344,11 @@ class MMZero3Client(BizHawkClient):
         Done whenever the player collects or receives an item, or transitions between stages."""
         self.in_results_screen = False
 
+        items_inventory = await self.get_items(ctx)
+
         await bizhawk.write(ctx.bizhawk_ctx, [
             (0x0371E8, list(self.cerveau_inventory),          "Combined WRAM"),  # Disk analysis inventory
-            (0x0371B8, list(self.get_items(ctx)),              "Combined WRAM"),  # Checked locations inventory
+            (0x0371B8, list(items_inventory),                 "Combined WRAM"),  # Checked locations inventory
             (0x02438,  list(self.eReader_bitflag_inventory),  "Combined WRAM"),  # eReader bitflags
             (0x02474,  self.eReader_byte_map_inventory,       "Combined WRAM"),  # eReader byte map
             (0x038068, self.ex_skill_inventory,               "Combined WRAM"),  # EX Skills
