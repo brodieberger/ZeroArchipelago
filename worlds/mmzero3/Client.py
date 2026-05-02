@@ -81,6 +81,7 @@ class MMZero3Client(BizHawkClient):
                 cerveau_inv,
                 results_screen,
                 demo_screen,
+                foot_inv,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
                 (0x3DF94,  10, "Combined WRAM"),  # Disks found in level
                 (0x3733D,   1, "Combined WRAM"),  # Non-disk items found
@@ -89,11 +90,14 @@ class MMZero3Client(BizHawkClient):
                 (0x0371E8, 45, "Combined WRAM"),  # AP inventory (disk analysis screen)
                 (0x030165,  1, "Combined WRAM"),  # Results screen flag
                 (0x042AE2,  1, "Combined WRAM"),  # Demo screen flag
+                (0x03806D,  1, "Combined WRAM"),  # Foot chip inventory
             ])
             self.cerveau_inventory = bytearray(cerveau_inv)
+            self.foot_inventory = bytearray(foot_inv)
 
             # Don't process anything while on the title/menu screen.
             if level_data == b'\x00':
+                self.prev_level_value = b'\x00'
                 return
 
             # Will be changed to true if the gamestate needs to be synchronized.
@@ -102,8 +106,8 @@ class MMZero3Client(BizHawkClient):
 
             # When the player transitions into the hub or a level, sync the inventory.
             # Level 0x11 is the resistance base hub.
-            is_in_hub = level_data.hex() == '11'
-            if self.prev_level_value != is_in_hub:
+            current_level = level_data.hex()
+            if self.prev_level_value != current_level:
                 needs_sync = True
 
             # Check if a disk was picked up in a level
@@ -277,19 +281,13 @@ class MMZero3Client(BizHawkClient):
                 # Foot Chips
                 if item.item in FOOT_CHIP_MAP:
                     byte_index, mask = FOOT_CHIP_MAP[item.item]
-
-                    self.foot_inventory = bytearray((await bizhawk.read(
-                        ctx.bizhawk_ctx,
-                        [(0x03806d, 1, "Combined WRAM")] 
-                    ))[0])
-
                     self.foot_inventory[byte_index] |= mask
 
             self.received_index = len(ctx.items_received)
 
             if needs_sync:
                 await self.sync_game_state(ctx)
-            self.prev_level_value = is_in_hub
+            self.prev_level_value = current_level
 
             self.disks_found = disks_found
             self.dialogue_id = dialogue_id
