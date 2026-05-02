@@ -345,7 +345,6 @@ class MMZero3Client(BizHawkClient):
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
         
         Done whenever the player collects or receives an item, or transitions between stages."""
-        print("syncing!")
         self.in_results_screen = False
 
         items_inventory = await self.get_items(ctx)
