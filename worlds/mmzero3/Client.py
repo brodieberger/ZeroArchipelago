@@ -92,12 +92,17 @@ class MMZero3Client(BizHawkClient):
             ])
             self.cerveau_inventory = bytearray(cerveau_inv)
 
+            # Don't process anything while on the title/menu screen.
+            if level_data == b'\x00':
+                return
+
             # Will be changed to true if the gamestate needs to be synchronized.
             # Either on some update or the player changing stages.
             needs_sync = False
-            
-            # When the player loads into the hub or a level, it should sync the inventory
-            is_in_hub = level_data.hex() in ('11', '00')
+
+            # When the player transitions into the hub or a level, sync the inventory.
+            # Level 0x11 is the resistance base hub.
+            is_in_hub = level_data.hex() == '11'
             if self.prev_level_value != is_in_hub:
                 needs_sync = True
 
@@ -342,6 +347,7 @@ class MMZero3Client(BizHawkClient):
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
         
         Done whenever the player collects or receives an item, or transitions between stages."""
+        print("syncing!")
         self.in_results_screen = False
 
         items_inventory = await self.get_items(ctx)
