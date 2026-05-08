@@ -137,13 +137,15 @@ class MMZero3Client(BizHawkClient):
 
             # When the player transitions into the hub or a level, sync the inventory.
             # Level 0x11 is the resistance base hub.
-            current_level = level_data.hex()
-            if self.prev_level_value != current_level:
+            if self.prev_level_value != level_data:
+                #print("current level has been changed!")
                 needs_sync = True
 
             # Force a sync if the counter doesn't match the server's item count.
             # Catches desyncs from savestates without requiring a level transition.
             if int.from_bytes(sync_counter, "little") != len(ctx.items_received):
+                #print("item count has been changed!")
+                #print(f"sync_counter: {(int.from_bytes(sync_counter, byteorder='little'))}")
                 needs_sync = True
 
             # Check if a disk was picked up in a level
@@ -201,8 +203,8 @@ class MMZero3Client(BizHawkClient):
             # Check if the player has completed a level
             # TODO: This method of checking is prone to breaking using savestates
             if results_screen != b'\x00' and not self.in_results_screen:
-                current_level = int.from_bytes(level_data, byteorder='little')
-                location_id = LEVEL_TO_LOCATION.get(current_level)
+                level_id = int.from_bytes(level_data, byteorder='little')
+                location_id = LEVEL_TO_LOCATION.get(level_id)
 
                 if location_id:
 
@@ -263,6 +265,7 @@ class MMZero3Client(BizHawkClient):
             # Receive an item from AP
             for i in range(self.received_index, len(ctx.items_received)):
                 needs_sync = True
+                #print("Item received from AP!")
                 item = ctx.items_received[i]
 
                 # Disk items
@@ -320,13 +323,16 @@ class MMZero3Client(BizHawkClient):
                     self.foot_inventory[byte_index] |= mask
 
             self.received_index = len(ctx.items_received)
+            #print(f"sync_counter: {(int.from_bytes(sync_counter, byteorder='little'))}")
+            #print(f"self.recieved_index: {self.received_index}")
+            #print(f"self.recieved_index: {self.body_inventory}")
 
             if needs_sync:
                 await self.sync_game_state(ctx)
                 await bizhawk.write(ctx.bizhawk_ctx, [
                     (SYNC_COUNTER_ADDR, list(len(ctx.items_received).to_bytes(2, "little")), "Combined WRAM"),
                 ])
-            self.prev_level_value = current_level
+            self.prev_level_value = level_data
 
             self.disks_found = disks_found
             self.dialogue_id = dialogue_id
@@ -384,6 +390,8 @@ class MMZero3Client(BizHawkClient):
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
 
         Done whenever the player collects or receives an item, or transitions between stages."""
+
+        #print("syncing!")
         self.in_results_screen = False
 
         items_inventory = await self.get_items(ctx)
