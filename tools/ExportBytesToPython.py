@@ -1,4 +1,4 @@
-# ExportBytesToPython.py
+# ExportBytesToPython.py  # flake8: noqa
 # Exports the current Ghidra listing selection as a Python patch snippet for Archipelago.
 # Each row corresponds to one instruction or one defined data item, with assembly/value as a comment.
 # ROM file offsets are calculated by subtracting the GBA ROM base (0x08000000).
