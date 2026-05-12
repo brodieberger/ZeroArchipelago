@@ -339,7 +339,7 @@ def EXSkill_chips_patch(patch: MMZero3ProcedurePatch) -> None:
     patch.write_token(
         APTokenTypes.WRITE,
         0x2437C,
-        bytes([0x00,0x00,0x00,0x00]),
+        bytes([0x00,0xF0,0x00,0x00]),
     )
 
     # NO OP EX Skill
@@ -371,7 +371,6 @@ def EXSkill_chips_patch(patch: MMZero3ProcedurePatch) -> None:
             0x3C, 0x73, 0x03, 0x02,  # PTR_gGameState.save.unused_240[8]_08105dc8: 0203733c
         ]),
     )
-
 
 def weapons_patch(patch: MMZero3ProcedurePatch) -> None:
     
@@ -416,7 +415,7 @@ def weapons_patch(patch: MMZero3ProcedurePatch) -> None:
     patch.write_token(
         APTokenTypes.WRITE,
         0xF4564,
-        bytes([0x11,0xF0,0x70,0xFC, 0x02, 0x20, 0x00, 0x00, 0x00, 0x00, 0x43, 0xe0]),
+        bytes([0x11,0xF0,0x70,0xFC,0x02,0x20,0x00,0x00,0x00,0x00,0x43,0xe0]),
     )
 
     # Handles logic for selecting main weapon
@@ -446,7 +445,7 @@ def weapons_patch(patch: MMZero3ProcedurePatch) -> None:
     # Branches from sub weapon selection function. No Op other code.
     patch.write_token(
         APTokenTypes.WRITE,
-        0xF4564,
+        0xF46C0,
         bytes([0x11,0xF0,0xEA,0xFB, 0x02, 0x20, 0x00, 0x00, 0x00, 0x00, 0x43, 0xe0]),
     )
 
@@ -472,6 +471,21 @@ def weapons_patch(patch: MMZero3ProcedurePatch) -> None:
             0x18, 0x47,              # bx r3
             0x3E, 0x73, 0x03, 0x02,  # PTR_gGameState.save.unused_240[10]_08105eb8: 0203733e
         ]),
+    )
+
+        # Branches from function that renders weapon icons
+    
+    # Makes all weapons collected by default
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x322BC,
+        bytes([0x00,0x21]),
+    )
+
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x322DA,
+        bytes([0x0F,0x20]),
     )
 
 class MMZero3Settings(settings.Group):
