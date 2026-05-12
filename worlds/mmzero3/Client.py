@@ -38,8 +38,9 @@ FOOT_INV_ADDR           = 0x03806D
 SUBTANK_1_ADDR          = 0x3805C
 SUBTANK_2_ADDR          = 0x3805D
 
-# Unused EWRAM address near the top of Combined WRAM (max 0x47FFF).
+# AP Related Counters
 SYNC_COUNTER_ADDR       = 0x37342
+WEAPONS_UNLOCKED_ADDR   = 0x3733E # THis is where the archipelago item weapons are stored. There are four bytes. Each byte can either be set to 1 for found or 0 for unfound and unusable.
 
 class MMZero3Client(BizHawkClient):
     game = "Mega Man Zero 3"
