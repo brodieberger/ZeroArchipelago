@@ -95,6 +95,28 @@ def general_changes_patch(patch: MMZero3ProcedurePatch) -> None:
         ]),
     )
 
+    # Branch on game start (to force sync)
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x0B3CA,
+        bytes([0xFA,0xF0,0x77,0xFD]),
+    )
+
+    # 0x105EBC - 0x105ECB (16 bytes)
+    patch.write_token(
+    APTokenTypes.WRITE,
+    0x105EBC,
+    bytes([
+        0x02, 0x48,              # ldr r0,[0x08105ec8]
+        0x00, 0x70,              # strb r0,[r0,#0x0]
+        0x90, 0x20,              # mov r0,#0x90
+        0x40, 0x02,              # lsl r0,r0,#0x9
+        0xF7, 0x46,              # mov pc,lr
+        0x00, 0x00,              # mov r0,r0
+        0x42, 0x73, 0x03, 0x02,  # PTR_gGameState.save.unused_240[14]_08105ec8: 02037342
+    ]),
+    )
+
 def leave_level_patch(patch: MMZero3ProcedurePatch) -> None:
     """Check if player can leave level. Allow them do to so or play error sound. Display the proper text."""
     # Jump to custom code block 1 on level exit, which is written to a chunk of unused ROM.
@@ -481,12 +503,13 @@ def weapons_patch(patch: MMZero3ProcedurePatch) -> None:
         0x322BC,
         bytes([0x00,0x21]),
     )
-
     patch.write_token(
         APTokenTypes.WRITE,
         0x322DA,
         bytes([0x0F,0x20]),
     )
+
+    
 
 class MMZero3Settings(settings.Group):
     class MMZero3RomFile(settings.UserFilePath):
