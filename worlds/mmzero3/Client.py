@@ -426,9 +426,9 @@ class MMZero3Client(BizHawkClient):
         ])
 
         tank_writes = []
-        if tank_1 == b'\xFF' and 218 in received_item_ids:
+        if tank_1 == b'\xFF' and 221 in received_item_ids:
             tank_writes.append((SUBTANK_1_ADDR, [0], "Combined WRAM"))
-        if tank_2 == b'\xFF' and 219 in received_item_ids:
+        if tank_2 == b'\xFF' and 222 in received_item_ids:
             tank_writes.append((SUBTANK_2_ADDR, [0], "Combined WRAM"))
         if tank_writes:
             await bizhawk.write(ctx.bizhawk_ctx, tank_writes)
