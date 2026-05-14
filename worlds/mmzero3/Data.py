@@ -180,6 +180,7 @@ EX_SKILL_MAP = {
     217: (0, 0x10),  # Gale Attack
 }
 
+#Level-Complete Location ID > EXSkill Item ID
 LOCATION_TO_EXSKILL = {
     182: 206,
     183: 207,
