@@ -183,14 +183,14 @@ class MMZero3Client(BizHawkClient):
                 if other_items_found == b'\x01':
                     await ctx.send_msgs([{
                             "cmd": "LocationChecks",
-                            "locations": [221]
+                            "locations": [LOC_SUBTANK_1]
                         }])
 
                 # Subtank 2 (Forest of Anatre)
                 elif (other_items_found == b'\x02'):
                     await ctx.send_msgs([{
                             "cmd": "LocationChecks",
-                            "locations": [222]
+                            "locations": [LOC_SUBTANK_2]
                         }])
 
                 await bizhawk.write(
@@ -426,9 +426,9 @@ class MMZero3Client(BizHawkClient):
         ])
 
         tank_writes = []
-        if tank_1 == b'\xFF' and 218 in received_item_ids:
+        if tank_1 == b'\xFF' and ITEM_SUBTANK_1 in received_item_ids:
             tank_writes.append((SUBTANK_1_ADDR, [0], "Combined WRAM"))
-        if tank_2 == b'\xFF' and 219 in received_item_ids:
+        if tank_2 == b'\xFF' and ITEM_SUBTANK_2 in received_item_ids:
             tank_writes.append((SUBTANK_2_ADDR, [0], "Combined WRAM"))
         if tank_writes:
             await bizhawk.write(ctx.bizhawk_ctx, tank_writes)
