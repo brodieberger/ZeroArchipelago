@@ -10,6 +10,24 @@ import json
 if TYPE_CHECKING:
     from . import MMZero3World
 
+EXPANDED_ROM_SIZE = 0x1000000  # 16 MiB
+ROM_PAD_BYTE = 0xFF
+
+
+class MMZero3PatchExtensions(APPatchExtension):
+    """Custom procedure steps for the Mega Man Zero 3 patch pipeline."""
+
+    game = "Mega Man Zero 3"
+
+    @staticmethod
+    def pad_rom(caller: APProcedurePatch, rom: bytes, target_size: int) -> bytes:
+        """Expand the ROM to `target_size` bytes by appending padding.
+
+        Must run after apply_bsdiff4 and before any apply_tokens        """
+        if len(rom) < target_size:
+            rom = bytes(rom) + bytes([ROM_PAD_BYTE]) * (target_size - len(rom))
+        return rom
+
 
 class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     game = "Mega Man Zero 3"
@@ -20,6 +38,7 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     # BSDIFF file is exclusively sprite edits. ASM changes are found in the write_tokens function.
     procedure = [
         ("apply_bsdiff4", ["mmz3-ap.bsdiff4"]),
+        ("pad_rom", [EXPANDED_ROM_SIZE]),
         ("apply_tokens", ["token_data.bin"]),
     ]
 
@@ -509,7 +528,7 @@ def weapons_patch(patch: MMZero3ProcedurePatch) -> None:
         bytes([0x0F,0x20]),
     )
 
-    
+
 
 class MMZero3Settings(settings.Group):
     class MMZero3RomFile(settings.UserFilePath):
