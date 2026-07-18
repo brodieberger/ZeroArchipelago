@@ -37,6 +37,8 @@ BODY_INV_ADDR           = 0x03806C
 FOOT_INV_ADDR           = 0x03806D
 SUBTANK_1_ADDR          = 0x3805C
 SUBTANK_2_ADDR          = 0x3805D
+SAVE_BODY_INV_ADDR      = 0x37318
+SAVE_FOOT_INV_ADDR      = 0x37319
 
 # AP Related Counters
 SYNC_COUNTER_ADDR       = 0x37342
@@ -381,14 +383,18 @@ class MMZero3Client(BizHawkClient):
             cerveau_ram,
             foot_ram,
             body_ram,
+            save_body_ram,
+            save_foot_ram,
             tank_1,
             tank_2,
         ) = await bizhawk.read(ctx.bizhawk_ctx, [
-            (CERVEAU_INV_ADDR,  45, "Combined WRAM"),  # Disk analysis (upper nibble = opened by player)
-            (FOOT_INV_ADDR,      1, "Combined WRAM"),  # Foot chips (disk-based chips written by game)
-            (BODY_INV_ADDR,      1, "Combined WRAM"),  # Body chips (game writes on equip/load)
-            (SUBTANK_1_ADDR,     1, "Combined WRAM"),
-            (SUBTANK_2_ADDR,     1, "Combined WRAM"),
+            (CERVEAU_INV_ADDR,   45, "Combined WRAM"),  # Disk analysis (upper nibble = opened by player)
+            (FOOT_INV_ADDR,       1, "Combined WRAM"),  # Live foot chips (disk-based chips written by game)
+            (BODY_INV_ADDR,       1, "Combined WRAM"),  # Live body chips (game writes on equip/load)
+            (SAVE_BODY_INV_ADDR,  1, "Combined WRAM"),  # Save-copy body chips
+            (SAVE_FOOT_INV_ADDR,  1, "Combined WRAM"),  # Save-copy foot chips
+            (SUBTANK_1_ADDR,      1, "Combined WRAM"),
+            (SUBTANK_2_ADDR,      1, "Combined WRAM"),
         ])
 
         # Recompute AP contributions from all received items
@@ -416,6 +422,10 @@ class MMZero3Client(BizHawkClient):
         foot_merged    = bytearray([foot_ram[0] | foot_ap])
         body_merged    = bytearray([body_ram[0] | body_ap])
 
+        # Mirror the chips into the save copy (gGameState.save.status) as well.
+        save_body_merged = bytearray([save_body_ram[0] | body_ap])
+        save_foot_merged = bytearray([save_foot_ram[0] | foot_ap])
+
         items_inventory = await self.get_items(ctx)
 
         await bizhawk.write(ctx.bizhawk_ctx, [
@@ -424,8 +434,10 @@ class MMZero3Client(BizHawkClient):
             (EREADER_BITFLAGS_ADDR, list(self.eReader_bitflag_inventory),  "Combined WRAM"),  # eReader bitflags
             (EREADER_BYTE_MAP_ADDR, self.eReader_byte_map_inventory,       "Combined WRAM"),  # eReader byte map
             (EX_SKILLS_ADDR,        self.ex_skill_inventory,               "Combined WRAM"),  # EX Skills
-            (BODY_INV_ADDR,         body_merged,                           "Combined WRAM"),  # Body chips
-            (FOOT_INV_ADDR,         foot_merged,                           "Combined WRAM"),  # Foot chips
+            (BODY_INV_ADDR,         body_merged,                           "Combined WRAM"),  # Body chips (live entity)
+            (FOOT_INV_ADDR,         foot_merged,                           "Combined WRAM"),  # Foot chips (live entity)
+            (SAVE_BODY_INV_ADDR,    save_body_merged,                      "Combined WRAM"),  # Body chips (save copy)
+            (SAVE_FOOT_INV_ADDR,    save_foot_merged,                      "Combined WRAM"),  # Foot chips (save copy)
             (WEAPONS_UNLOCKED_ADDR, list(self.weapon_inventory),           "Combined WRAM"),  # Weapons
         ])
 
