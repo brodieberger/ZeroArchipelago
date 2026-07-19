@@ -64,6 +64,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
     cmd_room_talk_tab_select_patch(patch)
     disable_story_advance_patch(patch)
     disable_forced_starts_patch(patch)
+    disable_flag9_menu_gate_patch(patch)
 
     patch.write_file("token_data.bin", patch.get_token_binary())
 
@@ -619,6 +620,16 @@ def disable_forced_starts_patch(patch: MMZero3ProcedurePatch) -> None:
         APTokenTypes.WRITE,
         0xEF064,
         bytes([0x04, 0xE0]),   # b 0x080EF070
+    )
+
+
+def disable_flag9_menu_gate_patch(patch: MMZero3ProcedurePatch) -> None:
+    """Always open mission menu regardless of gamestate.
+    """
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xF0D7C,
+        bytes([0x00, 0xE0]),   # b 0x080F0D80 (was bne)
     )
 
 

@@ -204,20 +204,15 @@ ITEM_SUBTANK_1 = 221
 ITEM_SUBTANK_2 = 222
 
 # Story Progress (progressive item)
-# The ROM's auto-story-advance is disabled (Rom.py), so the 7 story DONE flags
-# only advance via this item. Each received copy sets the next flag in order. 
-# (SPACE_CRAFT_DONE shares byte 0 with IS_FREERUN, so we MUST OR, not overwrite).
+# The ROM's auto-story-advance is disabled (Rom.py), so the story DONE flags
+# only advance via this item. Each received copy sets the next flag in order.
 STORY_PROGRESS_ID = 302
-STORY_PROGRESS_COUNT = 7            # copies in the pool (number of DONE flags)
+STORY_PROGRESS_COUNT = 6            # copies in the pool (number of DONE flags)
 
 GCURSTORY_FLAGS_ADDR = 0x030104     # live: gCurStory.s.gameflags
 SAVESTORY_FLAGS_ADDR = 0x037110     # save: gGameState.save.story.gameflags
 
-# Canonical order: (gameflags byte index, bit mask). Story Progress #N sets the
-# first N of these.  7=SPACE_CRAFT, 11=FIRST4, 12=MISSILE, 15=MID3, 16=AREAX2,
-# 18=LATER4, 21=SUBARCADIA.
 STORY_FLAG_SEQUENCE = [
-    (0, 0x80),   # SPACE_CRAFT_DONE  (flag 7)
     (1, 0x08),   # FIRST4_DONE       (flag 11)
     (1, 0x10),   # MISSILE_DONE      (flag 12)
     (1, 0x80),   # MID3_DONE         (flag 15)
