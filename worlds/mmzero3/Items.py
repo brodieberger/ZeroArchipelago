@@ -217,6 +217,12 @@ item_data_table: Dict[str, MMZero3ItemData] = {
     "Secret Disk 180: Buster Shot: Realistic Bullets": MMZero3ItemData(code=180, type=ItemClassification.filler),
     
     "Victory": MMZero3ItemData(code=300,type=ItemClassification.progression),
+    
+    "Progressive Story Progress": MMZero3ItemData(
+        code=302,
+        type=ItemClassification.progression,
+        can_create=lambda world: False,
+    ),
     **{
         f"{stage} Cleared": MMZero3ItemData(
             code=180 + idx + 1,

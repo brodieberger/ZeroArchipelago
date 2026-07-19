@@ -383,12 +383,16 @@ class MMZero3Client(BizHawkClient):
             body_ram,
             tank_1,
             tank_2,
+            gcurstory_flags,
+            savestory_flags,
         ) = await bizhawk.read(ctx.bizhawk_ctx, [
             (CERVEAU_INV_ADDR,  45, "Combined WRAM"),  # Disk analysis (upper nibble = opened by player)
             (FOOT_INV_ADDR,      1, "Combined WRAM"),  # Foot chips (disk-based chips written by game)
             (BODY_INV_ADDR,      1, "Combined WRAM"),  # Body chips (game writes on equip/load)
             (SUBTANK_1_ADDR,     1, "Combined WRAM"),
             (SUBTANK_2_ADDR,     1, "Combined WRAM"),
+            (GCURSTORY_FLAGS_ADDR, 3, "Combined WRAM"),  # live story gameflags[0..2]
+            (SAVESTORY_FLAGS_ADDR, 3, "Combined WRAM"),  # persistent story gameflags[0..2]
         ])
 
         # Recompute AP contributions from all received items
@@ -398,10 +402,13 @@ class MMZero3Client(BizHawkClient):
         foot_ap    = 0x01
         body_ap    = 0x01  
 
+        story_progress = 0
         received_item_ids = set()
         for item in ctx.items_received:
             item_id = item.item
             received_item_ids.add(item_id)
+            if item_id == STORY_PROGRESS_ID:
+                story_progress += 1
             if 1 <= item_id <= 180:
                 idx = item_id - 1
                 cerveau_ap[idx // 4] |= (1 << (idx % 4))
@@ -409,6 +416,13 @@ class MMZero3Client(BizHawkClient):
                 foot_ap |= FOOT_CHIP_MAP[item_id][1]
             if item_id in BODY_CHIP_MAP:
                 body_ap |= BODY_CHIP_MAP[item_id][1]
+
+        story_bits = [0, 0, 0]
+        for i in range(min(story_progress, len(STORY_FLAG_SEQUENCE))):
+            byte_idx, mask = STORY_FLAG_SEQUENCE[i]
+            story_bits[byte_idx] |= mask
+        gcurstory_merged = bytes(gcurstory_flags[i] | story_bits[i] for i in range(3))
+        savestory_merged = bytes(savestory_flags[i] | story_bits[i] for i in range(3))
 
         # Merged: RAM preserves game written state and ensures AP items are always present.
         # Cerveau: upper nibble (opened) comes from game, lower nibble (found) comes from AP.
@@ -427,6 +441,8 @@ class MMZero3Client(BizHawkClient):
             (BODY_INV_ADDR,         body_merged,                           "Combined WRAM"),  # Body chips
             (FOOT_INV_ADDR,         foot_merged,                           "Combined WRAM"),  # Foot chips
             (WEAPONS_UNLOCKED_ADDR, list(self.weapon_inventory),           "Combined WRAM"),  # Weapons
+            (GCURSTORY_FLAGS_ADDR,  list(gcurstory_merged),                "Combined WRAM"),  # Story flags (live)
+            (SAVESTORY_FLAGS_ADDR,  list(savestory_merged),                "Combined WRAM"),  # Story flags (persist)
         ])
 
         # Subtanks

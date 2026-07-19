@@ -62,6 +62,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
     EXSkill_chips_patch(patch)
     weapons_patch(patch)
     cmd_room_talk_tab_select_patch(patch)
+    disable_story_advance_patch(patch)
+    disable_forced_starts_patch(patch)
 
     patch.write_file("token_data.bin", patch.get_token_binary())
 
@@ -581,6 +583,42 @@ def cmd_room_talk_tab_select_patch(patch: MMZero3ProcedurePatch) -> None:
         APTokenTypes.WRITE,
         0xF1066,
         bytes([0x28, 0x1C, 0x00, 0x4B, 0x18, 0x47, 0x5d, 0x01, 0x80, 0x08]),
+    )
+
+
+def disable_story_advance_patch(patch: MMZero3ProcedurePatch) -> None:
+    """AP open-progression edit #1: disable auto story-advance.
+
+    UpdateStoryFlag (US 0x0801A3C4) normally sets the 7 story DONE flags from
+    gMissionDones at every stage-end (0x0801A3E2..0x0801A47D). We replace the
+    first instruction of that block with `b 0x0801A47E`, skipping all 7 SET_FLAGs
+    and landing directly on the StoreStoryData call -- so clearing stages no
+    longer advances the story. Story progression is now driven ONLY by the AP
+    "Story Progress" item. Save + cleanup (StoreStoryData/StoreZeroStatus) are
+    preserved. Verified byte-for-byte under unicorn (ap_tools
+    wip/disable_story_advance/verify.py): pristine sets flags 80/98/25, patched
+    leaves them 00/00/00, StoreStoryData still called in both.
+    """
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0x1A3E2,
+        bytes([0x4C, 0xE0]),   # b 0x0801A47E
+    )
+
+
+def disable_forced_starts_patch(patch: MMZero3ProcedurePatch) -> None:
+    """AP open-progression edit #2: disable the forced stage launches.
+
+    GameLoop_EndRun (US 0x080EEF2C) force-launches intermissions based on story
+    flags: Missile Factory (FIRST4_DONE & !MISSILE_DONE & at base) and Sub
+    Arcadia (LATER4_DONE & !SUBARCADIA_DONE & at base). Replace that store with
+    `b 0x080EF070` (the normal "return to base" LoadStageRun path), so neither
+    intermission is ever force-started -- they will later become ordinary selectable stages.
+    """
+    patch.write_token(
+        APTokenTypes.WRITE,
+        0xEF064,
+        bytes([0x04, 0xE0]),   # b 0x080EF070
     )
 
 

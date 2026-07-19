@@ -9,6 +9,7 @@ from .Locations import MMZero3Location, location_data_table, location_table, loc
 from .Options import MMZero3Options
 from .Regions import region_data_table
 from .Rom import MMZero3ProcedurePatch, MMZero3Settings, write_tokens
+from .Data import STORY_PROGRESS_COUNT
 from .Client import MMZero3Client
 
 import pkgutil
@@ -55,6 +56,9 @@ class MMZero3World(World):
         for name, item in item_data_table.items():
             if item.code and item.can_create(self) and name not in locked_item_names:
                 item_pool.append(self.create_item(name))
+
+        for _ in range(STORY_PROGRESS_COUNT):
+            item_pool.append(self.create_item("Progressive Story Progress"))
 
         self.multiworld.itempool += item_pool
 
@@ -115,6 +119,14 @@ class MMZero3World(World):
 
         def has_flame(state):
             return state.has("Flame Body Chip", self.player)
+
+        # NPC dialogue checks are gated purely by Progressive Story Progress, (intro done / after Missile / after Area X-2).
+        set_rule(self.multiworld.get_entrance("To Resistance Base 1", self.player),
+                    lambda state: state.has("Progressive Story Progress", self.player, 1))
+        set_rule(self.multiworld.get_entrance("To Resistance Base 2", self.player),
+                    lambda state: state.has("Progressive Story Progress", self.player, 3))
+        set_rule(self.multiworld.get_entrance("To Resistance Base 3", self.player),
+                    lambda state: state.has("Progressive Story Progress", self.player, 5))
 
         set_rule(self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
                     lambda state: state.has("Sub Arcadia Cleared", self.player))
