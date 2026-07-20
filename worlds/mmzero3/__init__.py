@@ -121,14 +121,14 @@ class MMZero3World(World):
             return state.has("Flame Body Chip", self.player)
 
         # NPC dialogue checks are gated purely by Progressive Story Progress.
-        # STORY_FLAG_SEQUENCE (Data.py) = [FIRST4, MISSILE, MID3, AREAX2, LATER4, SUBARCADIA],
-        # so 1=after FIRST4 ("intro" tier), 2=after Missile, 4=after Area X-2.
+        # STORY_FLAG_SEQUENCE (Data.py) = [FIRST4+MISSILE, MID3, AREAX2, LATER4+SUBARCADIA],
+        # so 1=after FIRST4+Missile ("intro" tier), 2=after MID3, 3=after Area X-2.
         set_rule(self.multiworld.get_entrance("To Resistance Base 1", self.player),
                     lambda state: state.has("Progressive Story Progress", self.player, 1))
         set_rule(self.multiworld.get_entrance("To Resistance Base 2", self.player),
                     lambda state: state.has("Progressive Story Progress", self.player, 2))
         set_rule(self.multiworld.get_entrance("To Resistance Base 3", self.player),
-                    lambda state: state.has("Progressive Story Progress", self.player, 4))
+                    lambda state: state.has("Progressive Story Progress", self.player, 3))
 
         set_rule(self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
                     lambda state: state.has("Sub Arcadia Cleared", self.player))

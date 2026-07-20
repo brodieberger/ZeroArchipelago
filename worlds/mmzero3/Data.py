@@ -205,20 +205,18 @@ ITEM_SUBTANK_2 = 222
 
 # Story Progress (progressive item)
 # The ROM's auto-story-advance is disabled (Rom.py), so the story DONE flags
-# only advance via this item. Each received copy sets the next flag in order.
+# only advance via this item. Each received copy sets the next entry below.
 STORY_PROGRESS_ID = 302
-STORY_PROGRESS_COUNT = 6            # copies in the pool (number of DONE flags)
+STORY_PROGRESS_COUNT = 4            # copies in the pool (number of sequence entries)
 
 GCURSTORY_FLAGS_ADDR = 0x030104     # live: gCurStory.s.gameflags
 SAVESTORY_FLAGS_ADDR = 0x037110     # save: gGameState.save.story.gameflags
 
 STORY_FLAG_SEQUENCE = [
-    (1, 0x08),   # FIRST4_DONE       (flag 11)
-    (1, 0x10),   # MISSILE_DONE      (flag 12)
+    (1, 0x18),   # FIRST4_DONE (flag 11) + MISSILE_DONE (flag 12)
     (1, 0x80),   # MID3_DONE         (flag 15)
     (2, 0x01),   # AREAX2_DONE       (flag 16)
-    (2, 0x04),   # LATER4_DONE       (flag 18)
-    (2, 0x20),   # SUBARCADIA_DONE   (flag 21)
+    (2, 0x24),   # LATER4_DONE (flag 18) + SUBARCADIA_DONE (flag 21)
 ]
 
 LOC_SUBTANK_1 = 221
