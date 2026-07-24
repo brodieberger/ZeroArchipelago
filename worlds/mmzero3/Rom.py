@@ -65,6 +65,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
     disable_story_advance_patch(patch)
     disable_forced_starts_patch(patch)
     disable_flag9_menu_gate_patch(patch)
+    disable_case5_hijacks_patch(patch)
 
     patch.write_file("token_data.bin", patch.get_token_binary())
 
@@ -631,6 +632,14 @@ def disable_flag9_menu_gate_patch(patch: MMZero3ProcedurePatch) -> None:
         0xF0D7C,
         bytes([0x00, 0xE0]),   # b 0x080F0D80 (was bne)
     )
+
+
+def disable_case5_hijacks_patch(patch: MMZero3ProcedurePatch) -> None:
+    """stop case 5 of OverworldLoop_CmdRoomTalk
+    """
+    patch.write_token(APTokenTypes.WRITE, 0xF0F65, bytes([0xE0]))  # beq->b 0x080F0F78
+    patch.write_token(APTokenTypes.WRITE, 0xF0F7F, bytes([0xE0]))  # bne->b 0x080F0F88
+    patch.write_token(APTokenTypes.WRITE, 0xF0F8B, bytes([0xE0]))  # bne->b 0x080F0FA0
 
 
 class MMZero3Settings(settings.Group):
