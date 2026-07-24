@@ -102,13 +102,10 @@ class MMZero3Client(BizHawkClient):
                 self.randomize_weapons = ctx.slot_data.get("randomize_weapons", 0)
                 starting_weapons = ctx.slot_data.get("starting_weapons", [])
                 weapon_name_to_index = {"Buster": 0, "Z-Saber": 1, "Recoil Rod": 2, "Shield Boomerang": 3}
-                if not self.randomize_weapons:
-                    self.weapon_inventory = bytearray([1, 1, 1, 1])
-                else:
-                    for weapon_name in starting_weapons:
-                        idx = weapon_name_to_index.get(weapon_name)
-                        if idx is not None:
-                            self.weapon_inventory[idx] = 1
+                for weapon_name in starting_weapons:
+                    idx = weapon_name_to_index.get(weapon_name)
+                    if idx is not None:
+                        self.weapon_inventory[idx] = 1
                 self.options_set = True
 
             # Read game state
