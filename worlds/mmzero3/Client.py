@@ -73,7 +73,6 @@ class MMZero3Client(BizHawkClient):
         self.dialogue_id = bytearray(2)
         self.eReader_bitflag_inventory = [0] * 12
         self.eReader_byte_map_inventory = [0] * 10
-        self.ex_skill_inventory = bytearray(2)
         self.weapon_inventory = bytearray(4)  # 4 bytes, one per weapon: 1 = usable, 0 = locked
 
 
@@ -205,6 +204,9 @@ class MMZero3Client(BizHawkClient):
 
                 self.dialogue_id = dialogue_id
 
+            if results_screen == b'\x00':
+                self.in_results_screen = False
+
             # Check if the player has completed a level
             # TODO: This method of checking is prone to breaking using savestates
             if results_screen != b'\x00' and not self.in_results_screen:
@@ -301,14 +303,6 @@ class MMZero3Client(BizHawkClient):
                     addr, value = BYTE_MAP[item.item]
                     self.eReader_byte_map_inventory[addr - EREADER_BYTE_MAP_ADDR] = value
 
-                # EX Skills
-                if item.item in EX_SKILL_MAP:
-                    byte_index, mask = EX_SKILL_MAP[item.item]
-                    self.ex_skill_inventory[byte_index] |= mask
-
-                # Weapons
-                if item.item in WEAPON_MAP:
-                    self.weapon_inventory[WEAPON_MAP[item.item]] = 1
 
             self.received_index = len(ctx.items_received)
 
@@ -376,8 +370,6 @@ class MMZero3Client(BizHawkClient):
 
         Done whenever the player collects or receives an item, or transitions between stages."""
 
-        self.in_results_screen = False
-
         # Read RAM for inventories the game also writes to, plus subtanks
         (
             cerveau_ram,
@@ -403,6 +395,8 @@ class MMZero3Client(BizHawkClient):
         # bit 0 is always on by default
         foot_ap    = 0x01
         body_ap    = 0x01  
+        ex_skill_ap = bytearray(2)
+        weapons_ap  = bytearray(self.weapon_inventory)
 
         received_item_ids = set()
         for item in ctx.items_received:
@@ -415,6 +409,11 @@ class MMZero3Client(BizHawkClient):
                 foot_ap |= FOOT_CHIP_MAP[item_id][1]
             if item_id in BODY_CHIP_MAP:
                 body_ap |= BODY_CHIP_MAP[item_id][1]
+            if item_id in EX_SKILL_MAP:
+                byte_index, mask = EX_SKILL_MAP[item_id]
+                ex_skill_ap[byte_index] |= mask
+            if item_id in WEAPON_MAP:
+                weapons_ap[WEAPON_MAP[item_id]] = 1
 
         # Merged: RAM preserves game written state and ensures AP items are always present.
         # Cerveau: upper nibble (opened) comes from game, lower nibble (found) comes from AP.
@@ -433,12 +432,12 @@ class MMZero3Client(BizHawkClient):
             (CHECKED_LOCS_INV_ADDR, list(items_inventory),                 "Combined WRAM"),  # Checked locations inventory
             (EREADER_BITFLAGS_ADDR, list(self.eReader_bitflag_inventory),  "Combined WRAM"),  # eReader bitflags
             (EREADER_BYTE_MAP_ADDR, self.eReader_byte_map_inventory,       "Combined WRAM"),  # eReader byte map
-            (EX_SKILLS_ADDR,        self.ex_skill_inventory,               "Combined WRAM"),  # EX Skills
+            (EX_SKILLS_ADDR,        ex_skill_ap,                           "Combined WRAM"),  # EX Skills
             (BODY_INV_ADDR,         body_merged,                           "Combined WRAM"),  # Body chips (live entity)
             (FOOT_INV_ADDR,         foot_merged,                           "Combined WRAM"),  # Foot chips (live entity)
             (SAVE_BODY_INV_ADDR,    save_body_merged,                      "Combined WRAM"),  # Body chips (save copy)
             (SAVE_FOOT_INV_ADDR,    save_foot_merged,                      "Combined WRAM"),  # Foot chips (save copy)
-            (WEAPONS_UNLOCKED_ADDR, list(self.weapon_inventory),           "Combined WRAM"),  # Weapons
+            (WEAPONS_UNLOCKED_ADDR, list(weapons_ap),                      "Combined WRAM"),  # Weapons
         ])
 
         # Subtanks
