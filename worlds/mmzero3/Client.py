@@ -254,7 +254,7 @@ class MMZero3Client(BizHawkClient):
                             "cmd": "Say", "text": "Final Stage Cleared! Game completed!"
                             }])
                         await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                    ctx.finished_game = True
+                        ctx.finished_game = True
 
                 self.in_results_screen = True
 
