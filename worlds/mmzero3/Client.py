@@ -87,7 +87,7 @@ class MMZero3Client(BizHawkClient):
             return False  # Not able to get a response, say no for now
 
         ctx.game = self.game
-        ctx.items_handling = 0b011 # gets items from other worlds and OWN world
+        ctx.items_handling = 0b111 
         ctx.want_slot_data = True
 
         return True
