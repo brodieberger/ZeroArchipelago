@@ -154,6 +154,7 @@ class MMZero3World(World):
         # Location rules: Recoil Rod required
         for loc_name in [
             "Aegis Volcano Base (4) 114: Push 1st Container",
+            "Oceanic Highway Ruins (1) 005: 1st Pit Breakable",
             "Weapons Repair Factory (2) 115: Hit 3rd Hammer",
             "Old Residential (1) 039: 1st Door",
             "Old Residential (3) 112: Floor Breakables",
