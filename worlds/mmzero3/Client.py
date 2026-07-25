@@ -351,7 +351,7 @@ class MMZero3Client(BizHawkClient):
 
             self.received_index = len(ctx.items_received)
 
-            if self.pending_crystals and settled and results_screen == b'\x00':
+            if self.pending_crystals and in_gameplay:
                 queue = int.from_bytes(
                     (await bizhawk.read(ctx.bizhawk_ctx, [(CRYSTAL_QUEUE_ADDR, 4, "Combined WRAM")]))[0],
                     "little",
