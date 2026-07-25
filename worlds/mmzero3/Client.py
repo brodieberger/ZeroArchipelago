@@ -180,7 +180,7 @@ class MMZero3Client(BizHawkClient):
 
             hp = int.from_bytes(body_hp, "little", signed=True)
             settled = self.prev_level_value == level_data
-            in_gameplay = settled and demo_screen != b'\x00' and results_screen == b'\x00' and level_data != b'\x11'
+            in_gameplay = settled and demo_screen != b'\x00' and results_screen == b'\x00'
 
             if self.pending_death_link:
                 self.pending_death_link = False
