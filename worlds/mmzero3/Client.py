@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING
+import time
+from typing import TYPE_CHECKING, Dict, Any
 
 from NetUtils import ClientStatus
 
@@ -39,6 +40,8 @@ SUBTANK_1_ADDR          = 0x3805C
 SUBTANK_2_ADDR          = 0x3805D
 SAVE_BODY_INV_ADDR      = 0x37318
 SAVE_FOOT_INV_ADDR      = 0x37319
+HP_ADDR                 = 0x38044  
+CRYSTAL_QUEUE_ADDR      = 0x2F5DC
 
 # AP Related Counters
 SYNC_COUNTER_ADDR       = 0x37342
@@ -64,6 +67,11 @@ class MMZero3Client(BizHawkClient):
         self.easy_ex_skill = 0
         self.randomize_weapons = 0
 
+        # DeathLink
+        self.death_link = False
+        self.pending_death_link = False
+        self.sending_death_link = True
+
         # Item tracking
         self.received_index = 0
         self.collected_disks = 0
@@ -86,10 +94,24 @@ class MMZero3Client(BizHawkClient):
             return False  # Not able to get a response, say no for now
 
         ctx.game = self.game
-        ctx.items_handling = 0b111 
+        ctx.items_handling = 0b111
         ctx.want_slot_data = True
 
         return True
+
+    def on_package(self, ctx: "BizHawkClientContext", cmd: str, args: Dict[str, Any]) -> None:
+        if cmd == "Bounced" and "tags" in args:
+            if "DeathLink" in args["tags"] and args["data"]["source"] != ctx.slot_info[ctx.slot].name:
+                self.on_deathlink(ctx)
+
+    async def send_deathlink(self, ctx: "BizHawkClientContext") -> None:
+        self.sending_death_link = True
+        ctx.last_death_link = time.time()
+        await ctx.send_death("Zero was destroyed.")
+
+    def on_deathlink(self, ctx: "BizHawkClientContext") -> None:
+        ctx.last_death_link = time.time()
+        self.pending_death_link = True
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
         try:
@@ -100,6 +122,7 @@ class MMZero3Client(BizHawkClient):
                 self.goal_type = ctx.slot_data.get("goal", 0)
                 self.easy_ex_skill = ctx.slot_data.get("easy_ex_skill", 0)
                 self.randomize_weapons = ctx.slot_data.get("randomize_weapons", 0)
+                self.death_link = bool(ctx.slot_data.get("death_link", 0))
                 starting_weapons = ctx.slot_data.get("starting_weapons", [])
                 weapon_name_to_index = {"Buster": 0, "Z-Saber": 1, "Recoil Rod": 2, "Shield Boomerang": 3}
                 for weapon_name in starting_weapons:
@@ -117,6 +140,7 @@ class MMZero3Client(BizHawkClient):
                 results_screen,
                 demo_screen,
                 sync_counter,
+                body_hp,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
                 (DISKS_FOUND_ADDR,       10, "Combined WRAM"),  # Disks found in level
                 (OTHER_ITEMS_FOUND_ADDR,  1, "Combined WRAM"),  # Non-disk items found
@@ -125,6 +149,7 @@ class MMZero3Client(BizHawkClient):
                 (RESULTS_SCREEN_ADDR,     1, "Combined WRAM"),  # Results screen flag
                 (DEMO_SCREEN_ADDR,        1, "IWRAM"),           # Demo screen flag
                 (SYNC_COUNTER_ADDR,       2, "Combined WRAM"),  # AP sync counter
+                (HP_ADDR,            2, "Combined WRAM"),  # Live Zero HP (DeathLink)
             ])
 
             # Don't process anything while on the title/menu screen.
@@ -148,6 +173,24 @@ class MMZero3Client(BizHawkClient):
                 #print("item count has been changed!")
                 #print(f"sync_counter: {(int.from_bytes(sync_counter, byteorder='little'))}")
                 needs_sync = True
+
+            if self.death_link:
+                await ctx.update_death_link(True)
+
+            hp = int.from_bytes(body_hp, "little", signed=True)
+            in_gameplay = level_data != b'\x11' and demo_screen == b'\x00' and results_screen == b'\x00'
+
+            if self.pending_death_link:
+                self.pending_death_link = False
+                self.sending_death_link = True
+                if in_gameplay:
+                    await bizhawk.write(ctx.bizhawk_ctx, [(HP_ADDR, [0, 0], "Combined WRAM")])
+
+            if "DeathLink" in ctx.tags and ctx.last_death_link + 1 < time.time():
+                if in_gameplay and hp <= 0 and not self.sending_death_link:
+                    await self.send_deathlink(ctx)
+                elif hp > 0:
+                    self.sending_death_link = False
 
             # Check if a disk was picked up in a level
             if disks_found != self.disks_found and demo_screen != b'\x00':
@@ -267,6 +310,7 @@ class MMZero3Client(BizHawkClient):
                 ctx.finished_game = True
 
             # Receive an item from AP
+            crystals_to_add = 0
             for i in range(self.received_index, len(ctx.items_received)):
                 needs_sync = True
                 item = ctx.items_received[i]
@@ -300,8 +344,21 @@ class MMZero3Client(BizHawkClient):
                     addr, value = BYTE_MAP[item.item]
                     self.eReader_byte_map_inventory[addr - EREADER_BYTE_MAP_ADDR] = value
 
+                if item.item in CRYSTAL_ITEM_VALUES:
+                    crystals_to_add += CRYSTAL_ITEM_VALUES[item.item]
+
 
             self.received_index = len(ctx.items_received)
+
+            if crystals_to_add:
+                queue = int.from_bytes(
+                    (await bizhawk.read(ctx.bizhawk_ctx, [(CRYSTAL_QUEUE_ADDR, 4, "Combined WRAM")]))[0],
+                    "little",
+                )
+                queue = min(queue + crystals_to_add, 9999)
+                await bizhawk.write(ctx.bizhawk_ctx, [
+                    (CRYSTAL_QUEUE_ADDR, list(queue.to_bytes(4, "little")), "Combined WRAM"),
+                ])
 
             if needs_sync:
                 await self.sync_game_state(ctx)

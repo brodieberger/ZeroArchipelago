@@ -104,8 +104,7 @@ class MMZero3World(World):
             self.get_location(location_name).place_locked_item(locked_item)
 
     def get_filler_item_name(self) -> str:
-        # TODO: implement energy crystal
-        return "100 Energy Crystals (Unimplemented)"
+        return "100 Energy Crystals"
     
     def fill_slot_data(self) -> Dict[str, Any]:
         return {
@@ -114,6 +113,7 @@ class MMZero3World(World):
             "easy_ex_skill": self.options.easy_ex_skill.value,
             "randomize_weapons": self.options.randomize_weapons.value,
             "starting_weapons": sorted(self.starting_weapons),
+            "death_link": self.options.death_link.value,
         }
 
     def set_rules(self) -> None:
