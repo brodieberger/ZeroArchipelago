@@ -179,7 +179,8 @@ class MMZero3Client(BizHawkClient):
                 await ctx.update_death_link(True)
 
             hp = int.from_bytes(body_hp, "little", signed=True)
-            in_gameplay = level_data != b'\x11' and demo_screen == b'\x00' and results_screen == b'\x00'
+            settled = self.prev_level_value == level_data
+            in_gameplay = settled and demo_screen != b'\x00' and results_screen == b'\x00' and level_data != b'\x11'
 
             if self.pending_death_link:
                 self.pending_death_link = False
@@ -350,8 +351,7 @@ class MMZero3Client(BizHawkClient):
 
             self.received_index = len(ctx.items_received)
 
-            settled = self.prev_level_value == level_data and demo_screen == b'\x00' and results_screen == b'\x00'
-            if self.pending_crystals and settled:
+            if self.pending_crystals and settled and results_screen == b'\x00':
                 queue = int.from_bytes(
                     (await bizhawk.read(ctx.bizhawk_ctx, [(CRYSTAL_QUEUE_ADDR, 4, "Combined WRAM")]))[0],
                     "little",
