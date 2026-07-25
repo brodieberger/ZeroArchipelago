@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import Choice, Range, Toggle, OptionSet, PerGameCommonOptions
+from Options import Choice, Range, Toggle, OptionSet, DeathLink, PerGameCommonOptions
 
 
 class Goal(Choice):
@@ -51,3 +51,4 @@ class MMZero3Options(PerGameCommonOptions):
     reward_notification: RewardNotification
     randomize_weapons: RandomizeWeapons
     starting_weapons: StartingWeapons
+    death_link: DeathLink
