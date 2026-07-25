@@ -277,7 +277,7 @@ item_data_table: Dict[str, MMZero3ItemData] = {
     ),
 
     # Filler Items
-    "100 Energy Crystals (Unimplemented)": MMZero3ItemData(
+    "100 Energy Crystals": MMZero3ItemData(
         code=301,
         can_create=lambda world: False  # Only created from `get_filler_item_name`.
     ),
