@@ -75,6 +75,7 @@ class MMZero3Client(BizHawkClient):
         # Item tracking
         self.received_index = 0
         self.collected_disks = 0
+        self.pending_crystals = 0
 
         # Inventories
         self.disks_found = bytearray(10)
@@ -310,7 +311,6 @@ class MMZero3Client(BizHawkClient):
                 ctx.finished_game = True
 
             # Receive an item from AP
-            crystals_to_add = 0
             for i in range(self.received_index, len(ctx.items_received)):
                 needs_sync = True
                 item = ctx.items_received[i]
@@ -345,20 +345,22 @@ class MMZero3Client(BizHawkClient):
                     self.eReader_byte_map_inventory[addr - EREADER_BYTE_MAP_ADDR] = value
 
                 if item.item in CRYSTAL_ITEM_VALUES:
-                    crystals_to_add += CRYSTAL_ITEM_VALUES[item.item]
+                    self.pending_crystals += CRYSTAL_ITEM_VALUES[item.item]
 
 
             self.received_index = len(ctx.items_received)
 
-            if crystals_to_add:
+            settled = self.prev_level_value == level_data and demo_screen == b'\x00' and results_screen == b'\x00'
+            if self.pending_crystals and settled:
                 queue = int.from_bytes(
                     (await bizhawk.read(ctx.bizhawk_ctx, [(CRYSTAL_QUEUE_ADDR, 4, "Combined WRAM")]))[0],
                     "little",
                 )
-                queue = min(queue + crystals_to_add, 9999)
+                queue = min(queue + self.pending_crystals, 9999)
                 await bizhawk.write(ctx.bizhawk_ctx, [
                     (CRYSTAL_QUEUE_ADDR, list(queue.to_bytes(4, "little")), "Combined WRAM"),
                 ])
+                self.pending_crystals = 0
 
             if needs_sync:
                 await self.sync_game_state(ctx)
