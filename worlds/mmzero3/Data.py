@@ -117,7 +117,7 @@ DIALOGUE_LOCATION_MAP = {
     0x24A: 116,
 
     0x24e: 169, # (Hibou)
-    0x24f: 160,
+    0x24f: 169,
     0x250: 169,
     0x251: 169,
 
@@ -148,6 +148,13 @@ DIALOGUE_LOCATION_MAP = {
     0x20b: 92,
     0x20c: 92,
     0x20d: 92,
+}
+
+
+# Which location check to give based on what is displayed in the textbox. ADDRESS: 2030C30
+# Dialogue ID: location check to give (NPC)
+TEXTBOX_LOCATION_MAP = {
+    0xD9093808: 92, #fix that
 }
 
 BODY_CHIP_MAP = {
