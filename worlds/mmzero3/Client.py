@@ -238,8 +238,6 @@ class MMZero3Client(BizHawkClient):
 
             # Check if an NPC has given a disk (or is talked to after their reward period is expired)
             if dialogue_id != self.dialogue_id:
-
-
                 new_dialogue = int.from_bytes(dialogue_id, "little")
                 location = DIALOGUE_LOCATION_MAP.get(new_dialogue)
 
@@ -251,9 +249,8 @@ class MMZero3Client(BizHawkClient):
 
                 self.dialogue_id = dialogue_id
 
-            # Check if an Cervau is talked to after their reward period is expired
+            # Check if a textbox is related to a location check (Only used for Cerveau stuff atm)
             if textbox_id != self.textbox_id:
-
                 new_textbox = int.from_bytes(textbox_id, "little")
                 location = TEXTBOX_LOCATION_MAP.get(new_textbox)
 
@@ -264,13 +261,6 @@ class MMZero3Client(BizHawkClient):
                     }])
 
                 self.textbox_id = textbox_id
-                print(f"textbox ID{textbox_id} \n location {location} \n new textbox {new_textbox}")
-                """
-                textbox found b'Z\x058\x08'
-                textbox IDb'Z\x058\x08'
-                location None
-                new textbox 137889114
-                """
 
             if results_screen == b'\x00':
                 self.in_results_screen = False
