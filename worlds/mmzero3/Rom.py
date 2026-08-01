@@ -17,9 +17,8 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     patch_file_ending = ".apmmzero3"
     result_file_ending = ".gba"
 
-    # BSDIFF file is exclusively sprite edits. ASM changes are found in the write_tokens function.
     procedure = [
-        ("apply_bsdiff4", ["mmz3-ap.bsdiff4"]),
+        ("apply_bsdiff4", ["basepatch.bsdiff4"]),
         ("apply_tokens", ["token_data.bin"]),
     ]
 
