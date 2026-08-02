@@ -5,11 +5,56 @@
   "magic_ascii": "APZ3",
   "ap_state": {
     "address": 33812096,
-    "size": 4,
+    "size": 172,
     "fields": {
       "ready": {
         "offset": 0,
         "size": 4,
+        "count": 1
+      },
+      "locQueue": {
+        "offset": 4,
+        "size": 2,
+        "count": 64
+      },
+      "itemInbox": {
+        "offset": 132,
+        "size": 2,
+        "count": 16
+      },
+      "itemsApplied": {
+        "offset": 164,
+        "size": 2,
+        "count": 1
+      },
+      "locWrite": {
+        "offset": 166,
+        "size": 1,
+        "count": 1
+      },
+      "locRead": {
+        "offset": 167,
+        "size": 1,
+        "count": 1
+      },
+      "inboxWrite": {
+        "offset": 168,
+        "size": 1,
+        "count": 1
+      },
+      "inboxRead": {
+        "offset": 169,
+        "size": 1,
+        "count": 1
+      },
+      "locDropped": {
+        "offset": 170,
+        "size": 1,
+        "count": 1
+      },
+      "_pad": {
+        "offset": 171,
+        "size": 1,
         "count": 1
       }
     }
