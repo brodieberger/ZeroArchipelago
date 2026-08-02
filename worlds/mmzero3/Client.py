@@ -60,7 +60,6 @@ RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results sc
 DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Item / location tracking
-OTHER_ITEMS_FOUND_ADDR  = 0x3733D
 DIALOGUE_ID_ADDR        = 0x371E6
 TEXTBOX_ID_ADDR         = 0x30C30
 ELF_FLAG_ADDR           = 0x3733C
@@ -73,8 +72,6 @@ EREADER_BYTE_MAP_ADDR   = 0x02474
 EX_SKILLS_ADDR          = 0x38068
 BODY_INV_ADDR           = 0x3806C
 FOOT_INV_ADDR           = 0x3806D
-SUBTANK_1_ADDR          = 0x3805C
-SUBTANK_2_ADDR          = 0x3805D
 SAVE_BODY_INV_ADDR      = 0x37318
 SAVE_FOOT_INV_ADDR      = 0x37319
 HP_ADDR                 = 0x38044  
@@ -314,7 +311,6 @@ class MMZero3Client(BizHawkClient):
 
             # Read game state
             (
-                other_items_found,
                 dialogue_id,
                 textbox_id,
                 level_data,
@@ -323,7 +319,6 @@ class MMZero3Client(BizHawkClient):
                 sync_counter,
                 body_hp,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
-                (OTHER_ITEMS_FOUND_ADDR,  1, "Combined WRAM"),  # Non-disk items found
                 (DIALOGUE_ID_ADDR,        2, "Combined WRAM"),  # Most recent NPC Reward Dialogue ID
                 (TEXTBOX_ID_ADDR,         4, "Combined WRAM"),  # Pointer to Text displayed
                 (CURRENT_LEVEL_ADDR,      1, "Combined WRAM"),  # Current level
@@ -375,27 +370,6 @@ class MMZero3Client(BizHawkClient):
                     self.sending_death_link = False
 
 
-            # Check if non disk item was collected. Disks handled through the mailbox now.
-            if other_items_found != b'\x00':
-
-                # Subtank 1 (Old Residential Area)
-                if other_items_found == b'\x01':
-                    await ctx.send_msgs([{
-                            "cmd": "LocationChecks",
-                            "locations": [LOC_SUBTANK_1]
-                        }])
-
-                # Subtank 2 (Forest of Anatre)
-                elif (other_items_found == b'\x02'):
-                    await ctx.send_msgs([{
-                            "cmd": "LocationChecks",
-                            "locations": [LOC_SUBTANK_2]
-                        }])
-
-                await bizhawk.write(
-                    ctx.bizhawk_ctx,
-                    [(OTHER_ITEMS_FOUND_ADDR, [0], "Combined WRAM")]
-                )
 
             # Check if an NPC has given a disk (or is talked to after their reward period is expired)
             if dialogue_id != self.dialogue_id:
@@ -609,15 +583,11 @@ class MMZero3Client(BizHawkClient):
             body_ram,
             save_body_ram,
             save_foot_ram,
-            tank_1,
-            tank_2,
         ) = await bizhawk.read(ctx.bizhawk_ctx, [
             (FOOT_INV_ADDR,       1, "Combined WRAM"),  # Live foot chips (disk-based chips written by game)
             (BODY_INV_ADDR,       1, "Combined WRAM"),  # Live body chips (game writes on equip/load)
             (SAVE_BODY_INV_ADDR,  1, "Combined WRAM"),  # Save-copy body chips
             (SAVE_FOOT_INV_ADDR,  1, "Combined WRAM"),  # Save-copy foot chips
-            (SUBTANK_1_ADDR,      1, "Combined WRAM"),
-            (SUBTANK_2_ADDR,      1, "Combined WRAM"),
         ])
 
         # Recompute AP contributions from all received items
@@ -663,11 +633,3 @@ class MMZero3Client(BizHawkClient):
             (WEAPONS_UNLOCKED_ADDR, list(weapons_ap),                      "Combined WRAM"),  # Weapons
         ])
 
-        # Subtanks
-        tank_writes = []
-        if tank_1 == b'\xFF' and ITEM_SUBTANK_1 in received_item_ids:
-            tank_writes.append((SUBTANK_1_ADDR, [0], "Combined WRAM"))
-        if tank_2 == b'\xFF' and ITEM_SUBTANK_2 in received_item_ids:
-            tank_writes.append((SUBTANK_2_ADDR, [0], "Combined WRAM"))
-        if tank_writes:
-            await bizhawk.write(ctx.bizhawk_ctx, tank_writes)
