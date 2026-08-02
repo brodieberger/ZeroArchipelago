@@ -60,7 +60,6 @@ RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results sc
 DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Item / location tracking
-DISKS_FOUND_ADDR        = 0x3DF94
 OTHER_ITEMS_FOUND_ADDR  = 0x3733D
 DIALOGUE_ID_ADDR        = 0x371E6
 TEXTBOX_ID_ADDR         = 0x30C30
@@ -124,7 +123,6 @@ class MMZero3Client(BizHawkClient):
         self.pending_crystals = 0
 
         # Inventories
-        self.disks_found = bytearray(10)
         self.dialogue_id = bytearray(2)
         self.textbox_id = bytearray(4)
         self.eReader_bitflag_inventory = [0] * 12
@@ -316,7 +314,6 @@ class MMZero3Client(BizHawkClient):
 
             # Read game state
             (
-                disks_found,
                 other_items_found,
                 dialogue_id,
                 textbox_id,
@@ -326,7 +323,6 @@ class MMZero3Client(BizHawkClient):
                 sync_counter,
                 body_hp,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
-                (DISKS_FOUND_ADDR,       10, "Combined WRAM"),  # Disks found in level
                 (OTHER_ITEMS_FOUND_ADDR,  1, "Combined WRAM"),  # Non-disk items found
                 (DIALOGUE_ID_ADDR,        2, "Combined WRAM"),  # Most recent NPC Reward Dialogue ID
                 (TEXTBOX_ID_ADDR,         4, "Combined WRAM"),  # Pointer to Text displayed
@@ -378,23 +374,8 @@ class MMZero3Client(BizHawkClient):
                 elif hp > 0:
                     self.sending_death_link = False
 
-            # Check if a disk was picked up in a level
-            if disks_found != self.disks_found and demo_screen != b'\x00':
-                new_locations = []
 
-                for old, new in zip(self.disks_found, disks_found):
-                    if old == 0xFF and new != 0xFF:
-                        new_locations.append(new+1)
-
-                if new_locations:
-                    await ctx.send_msgs([{
-                        "cmd": "LocationChecks",
-                        "locations": new_locations
-                    }])
-
-                self.disks_found = disks_found
-
-            # Check if non disk item was collected
+            # Check if non disk item was collected. Disks handled through the mailbox now.
             if other_items_found != b'\x00':
 
                 # Subtank 1 (Old Residential Area)
@@ -565,7 +546,6 @@ class MMZero3Client(BizHawkClient):
                 ])
             self.prev_level_value = level_data
 
-            self.disks_found = disks_found
             self.dialogue_id = dialogue_id
             self.textbox_id = textbox_id
 
