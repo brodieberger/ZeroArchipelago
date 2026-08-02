@@ -1,17 +1,55 @@
+import json
+import logging
+import pkgutil
 import time
-from typing import TYPE_CHECKING, Dict, Any
+from typing import TYPE_CHECKING, Dict, Any, List, Optional
 
 from NetUtils import ClientStatus
-
 import worlds._bizhawk as bizhawk
-from .Options import MMZero3Options
 from worlds._bizhawk.client import BizHawkClient
 
 from .Data import *
 
 if TYPE_CHECKING:
     from worlds._bizhawk.context import BizHawkClientContext
-    from . import MMZero3World
+
+logger = logging.getLogger("Client")
+EWRAM_BASE = 0x02000000
+
+class ApBlock:
+    """Addresses of gAp's fields, read from ap_symbols.json"""
+
+    def __init__(self, doc: dict):
+        state = doc["ap_state"]
+        self.ready_value: int = doc["ready"]  # what gAp.ready reads once the game is up
+        self.version: int = doc["version"]
+        self.base: int = state["address"] - EWRAM_BASE
+        self._fields: dict = state["fields"]
+
+    def addr(self, field: str) -> int:
+        return self.base + self._fields[field]["offset"]
+
+    def count(self, field: str) -> int:
+        return self._fields[field]["count"]
+
+    def elem_size(self, field: str) -> int:
+        return self._fields[field]["size"]
+
+    def span(self, field: str) -> int:
+        return self.elem_size(field) * self.count(field)
+
+
+def load_ap_symbols() -> Optional[ApBlock]:
+    try:
+        raw = pkgutil.get_data(__name__, "ap_symbols.json")
+        if raw is None:
+            raise FileNotFoundError("ap_symbols.json not found in the apworld")
+        return ApBlock(json.loads(raw.decode("utf-8")))
+    except Exception as exc:
+        logger.error(
+            "MMZero3: could not load ap_symbols.json (%s).", exc)
+        return None
+
 
 # ROM
 ROM_NAME_ADDR           = 0x0A0
@@ -30,7 +68,6 @@ ELF_FLAG_ADDR           = 0x3733C
 ITEM_NOTIFY_ADDR        = 0x371E5
 
 # Inventories
-CERVEAU_INV_ADDR        = 0x371E8
 CHECKED_LOCS_INV_ADDR   = 0x371B8
 EREADER_BITFLAGS_ADDR   = 0x02438
 EREADER_BYTE_MAP_ADDR   = 0x02474
@@ -60,6 +97,14 @@ class MMZero3Client(BizHawkClient):
         self.prev_level_value = None
         self.in_results_screen = False
         self.player_warned = False
+
+        # gAp stuff. `ap` is None only if ap_symbols.json failed to load.
+        self.ap = load_ap_symbols()
+        self.ap_disabled = False       # set true in case of a version mismatch between client and the ROM
+        self.ap_handshake_logged = False
+        self.ap_drop_warned = False
+        self.items_pushed = 0          # how much of items_received is in the game's RAM
+        self.items_applied_seen = 0    # last gAp.itemsApplied; a drop means a reset
 
         # Options (overwritten from slot data)
         self.options_set = False
@@ -116,8 +161,143 @@ class MMZero3Client(BizHawkClient):
         ctx.last_death_link = time.time()
         self.pending_death_link = True
 
+    async def sync_ap_mailbox(self, ctx: "BizHawkClientContext") -> None:
+        """ removes checked locations, push received items.
+
+        Game -> client, the game calls ApSendLocation() at the sites that already know a check happened 
+        locQueue has the same IDs as the item/location IDs.
+
+        Client -> game, uses push_items().
+        """
+        if self.ap is None or self.ap_disabled:
+            return
+
+        # Wait until connected
+        if ctx.slot is None or not ctx.server_locations:
+            return
+
+        # One batch for both directions: the handshake, the location queue's indices, and the item queue's.
+        (ready_b, version_b, write_b, read_b, dropped_b,
+         inbox_write_b, inbox_read_b, applied_b) = await bizhawk.read(ctx.bizhawk_ctx, [
+            (self.ap.addr("ready"),        4, "Combined WRAM"),
+            (self.ap.addr("version"),      2, "Combined WRAM"),
+            (self.ap.addr("locWrite"),     1, "Combined WRAM"),
+            (self.ap.addr("locRead"),      1, "Combined WRAM"),
+            (self.ap.addr("locDropped"),   1, "Combined WRAM"),
+            (self.ap.addr("inboxWrite"),   1, "Combined WRAM"),
+            (self.ap.addr("inboxRead"),    1, "Combined WRAM"),
+            (self.ap.addr("itemsApplied"), 2, "Combined WRAM"),
+        ])
+
+        # ApInit runs on the first Process_Game. So it could still be booting.
+        if int.from_bytes(ready_b, "little") != self.ap.ready_value:
+            return
+
+        version = int.from_bytes(version_b, "little")
+        if version != self.ap.version:
+            self.ap_disabled = True
+            message = (f"ROM/client version mismatch: the ROM is AP interface version {version}, "
+                       f"this apworld is version {self.ap.version}. Please Generate a new game/ROM!.")
+            logger.error("MMZero3: %s", message)
+            await ctx.send_msgs([{"cmd": "Say", "text": f"[MMZ3] {message}"}])
+            return
+
+        if not self.ap_handshake_logged:
+            logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
+                        self.ap.base + EWRAM_BASE, version)
+            self.ap_handshake_logged = True
+
+        # Non-zero means ApSendLocation found the queue full and threw a check away --
+        # the client stalled for 63 checks. Should never happen; say so if it does.
+        dropped = dropped_b[0]
+        if dropped and not self.ap_drop_warned:
+            self.ap_drop_warned = True
+            logger.error("MMZero3: the ROM dropped %d location(s) -- gAp.locQueue "
+                         "overflowed while the client was not draining it.", dropped)
+            await ctx.send_msgs([{"cmd": "Say", "text":
+                                  f"[MMZ3] warning: {dropped} location(s) were lost to a full "
+                                  f"queue. Use !senditem if something is missing."}])
+
+        await self.push_items(ctx, inbox_write_b[0], inbox_read_b[0],
+                              int.from_bytes(applied_b, "little"))
+
+        write, read = write_b[0], read_b[0]
+        if write == read:
+            return
+
+        queue = (await bizhawk.read(
+            ctx.bizhawk_ctx,
+            [(self.ap.addr("locQueue"), self.ap.span("locQueue"), "Combined WRAM")]))[0]
+
+        mask = self.ap.count("locQueue") - 1
+        width = self.ap.elem_size("locQueue")
+
+        location_ids: List[int] = []
+        index = read
+        while index != write:
+            offset = index * width
+            location_ids.append(int.from_bytes(queue[offset:offset + width], "little"))
+            index = (index + 1) & mask
+
+        known = [loc for loc in location_ids if loc in ctx.server_locations]
+        unknown = sorted({loc for loc in location_ids if loc not in ctx.server_locations})
+        if unknown:
+            # The ROM reported a location this slot doesn't have.
+            logger.warning("MMZero3: ROM reported unknown location id(s) %s; ignoring.", unknown)
+
+        if known:
+            await ctx.send_msgs([{"cmd": "LocationChecks", "locations": known}])
+            logger.debug("MMZero3: drained %d location(s) from gAp: %s", len(known), known)
+
+        await bizhawk.write(ctx.bizhawk_ctx,
+                            [(self.ap.addr("locRead"), [write], "Combined WRAM")])
+
+    async def push_items(self, ctx: "BizHawkClientContext",
+                         inbox_write: int, inbox_read: int, items_applied: int) -> None:
+        """Hand received items to the game through gAp.itemInbox.
+
+        The game grants them itself through ROM edits.
+        """
+        capacity = self.ap.count("itemInbox")
+        mask = capacity - 1
+        width = self.ap.elem_size("itemInbox")
+
+        # itemsApplied going backwards means ApInit ran again from a a reset, or a savestate. Resend everything.
+        if items_applied < self.items_applied_seen:
+            logger.info("MMZero3: game restarted (applied %d -> %d); resending items.",
+                        self.items_applied_seen, items_applied)
+            self.items_pushed = 0
+        self.items_applied_seen = items_applied
+
+        pending = ctx.items_received[self.items_pushed:]
+        if not pending:
+            return
+
+        in_flight = (inbox_write - inbox_read) & mask
+        free = mask - in_flight
+        if free <= 0:
+            # The game is not draining due to being in a menu, a cutscene, a transition.
+            return
+
+        batch = []
+        cursor = inbox_write
+        count = min(free, len(pending))
+        for net_item in pending[:count]:
+            batch.append((self.ap.addr("itemInbox") + cursor * width,
+                          list(int(net_item.item).to_bytes(width, "little")),
+                          "Combined WRAM"))
+            cursor = (cursor + 1) & mask
+
+        batch.append((self.ap.addr("inboxWrite"), [cursor], "Combined WRAM"))
+        await bizhawk.write(ctx.bizhawk_ctx, batch)
+
+        self.items_pushed += count
+        logger.debug("MMZero3: pushed %d item(s) to the game; %d still pending.",
+                     count, len(pending) - count)
+
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
         try:
+            await self.sync_ap_mailbox(ctx)
 
             # Set the options
             if ctx.slot_data and not self.options_set:
@@ -445,7 +625,6 @@ class MMZero3Client(BizHawkClient):
 
         # Read RAM for inventories the game also writes to, plus subtanks
         (
-            cerveau_ram,
             foot_ram,
             body_ram,
             save_body_ram,
@@ -453,7 +632,6 @@ class MMZero3Client(BizHawkClient):
             tank_1,
             tank_2,
         ) = await bizhawk.read(ctx.bizhawk_ctx, [
-            (CERVEAU_INV_ADDR,   45, "Combined WRAM"),  # Disk analysis (upper nibble = opened by player)
             (FOOT_INV_ADDR,       1, "Combined WRAM"),  # Live foot chips (disk-based chips written by game)
             (BODY_INV_ADDR,       1, "Combined WRAM"),  # Live body chips (game writes on equip/load)
             (SAVE_BODY_INV_ADDR,  1, "Combined WRAM"),  # Save-copy body chips
@@ -463,11 +641,9 @@ class MMZero3Client(BizHawkClient):
         ])
 
         # Recompute AP contributions from all received items
-        cerveau_ap = bytearray(45)
-
         # bit 0 is always on by default
         foot_ap    = 0x01
-        body_ap    = 0x01  
+        body_ap    = 0x01
         ex_skill_ap = bytearray(2)
         weapons_ap  = bytearray(self.weapon_inventory)
 
@@ -475,9 +651,6 @@ class MMZero3Client(BizHawkClient):
         for item in ctx.items_received:
             item_id = item.item
             received_item_ids.add(item_id)
-            if 1 <= item_id <= 180:
-                idx = item_id - 1
-                cerveau_ap[idx // 4] |= (1 << (idx % 4))
             if item_id in FOOT_CHIP_MAP:
                 foot_ap |= FOOT_CHIP_MAP[item_id][1]
             if item_id in BODY_CHIP_MAP:
@@ -489,8 +662,6 @@ class MMZero3Client(BizHawkClient):
                 weapons_ap[WEAPON_MAP[item_id]] = 1
 
         # Merged: RAM preserves game written state and ensures AP items are always present.
-        # Cerveau: upper nibble (opened) comes from game, lower nibble (found) comes from AP.
-        cerveau_merged = bytearray(cerveau_ram[i] | cerveau_ap[i] for i in range(45))
         foot_merged    = bytearray([foot_ram[0] | foot_ap])
         body_merged    = bytearray([body_ram[0] | body_ap])
 
@@ -501,7 +672,6 @@ class MMZero3Client(BizHawkClient):
         items_inventory = await self.get_items(ctx)
 
         await bizhawk.write(ctx.bizhawk_ctx, [
-            (CERVEAU_INV_ADDR,      list(cerveau_merged),                  "Combined WRAM"),  # Disk analysis inventory
             (CHECKED_LOCS_INV_ADDR, list(items_inventory),                 "Combined WRAM"),  # Checked locations inventory
             (EREADER_BITFLAGS_ADDR, list(self.eReader_bitflag_inventory),  "Combined WRAM"),  # eReader bitflags
             (EREADER_BYTE_MAP_ADDR, self.eReader_byte_map_inventory,       "Combined WRAM"),  # eReader byte map
