@@ -100,50 +100,6 @@ BYTE_MAP = {
     180: (0x0247D, 0x02),
 }
 
-# Which location check to give based on dialogue. (So that no disks can be missed based on dialogue)
-# Dialogue ID: location check to give (NPC)
-DIALOGUE_LOCATION_MAP = {
-    0x241: 107, #(Andrew)
-    0x242: 107,
-    0x243: 107,
-    0x2CF: 107,
-    0x2D0: 107,
-    0x2D1: 107,
-    0x2D2: 107,
-
-    0x247: 116, #(Alouette)
-    0x248: 116,
-    0x249: 116,
-    0x24A: 116,
-
-    0x24e: 169, # (Hibou)
-    0x24f: 169,
-    0x250: 169,
-    0x251: 169,
-
-    0x253: 175, # (Menart)
-    0x254: 175,
-    0x255: 175,
-    0x256: 175,
-    0x257: 175,
-    0x268: 175,
-
-    0x25a: 167, # (Rocinolle)
-    0x25C: 167,
-    0x25d: 44, #(Rocinolle unmissable)
-    0x25e: 167,
-
-    0x271: 173, #(Hirondelle unmissable)
-
-    0x284: 174, #(Doigt unmissable)
-
-    0x2a6: 58, # (Tower guy)
-    0x2A9: 58,
-    0x2AB: 58,
-
-    0x2b1: 23, #(guy in room 02D)
-    0x2B3: 23,
-}
 
 
 # Which location check to give based on what is displayed in the textbox. ADDRESS: 2030C30
@@ -154,10 +110,6 @@ TEXTBOX_LOCATION_MAP = {
     0x08376EA5: 227, # Shield Boomerang
     0x08387D83: 226, # Recoil Rod (backup in case of fast forwarding dialogue)
     0x08387E80: 227, # Same but for shield boomerang
-
-    # Cerveau Disk
-    0x0837862E: 92, # CERVEAU: About Harpuia
-    0x08378769: 92, # CERVEAU: Zero hope for the future
 }
 
 BODY_CHIP_MAP = {

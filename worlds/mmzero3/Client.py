@@ -60,7 +60,6 @@ RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results sc
 DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Item / location tracking
-DIALOGUE_ID_ADDR        = 0x371E6
 TEXTBOX_ID_ADDR         = 0x30C30
 ELF_FLAG_ADDR           = 0x3733C
 ITEM_NOTIFY_ADDR        = 0x371E5
@@ -120,7 +119,6 @@ class MMZero3Client(BizHawkClient):
         self.pending_crystals = 0
 
         # Inventories
-        self.dialogue_id = bytearray(2)
         self.textbox_id = bytearray(4)
         self.eReader_bitflag_inventory = [0] * 12
         self.eReader_byte_map_inventory = [0] * 10
@@ -311,7 +309,6 @@ class MMZero3Client(BizHawkClient):
 
             # Read game state
             (
-                dialogue_id,
                 textbox_id,
                 level_data,
                 results_screen,
@@ -319,7 +316,6 @@ class MMZero3Client(BizHawkClient):
                 sync_counter,
                 body_hp,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
-                (DIALOGUE_ID_ADDR,        2, "Combined WRAM"),  # Most recent NPC Reward Dialogue ID
                 (TEXTBOX_ID_ADDR,         4, "Combined WRAM"),  # Pointer to Text displayed
                 (CURRENT_LEVEL_ADDR,      1, "Combined WRAM"),  # Current level
                 (RESULTS_SCREEN_ADDR,     1, "Combined WRAM"),  # Results screen flag
@@ -371,18 +367,6 @@ class MMZero3Client(BizHawkClient):
 
 
 
-            # Check if an NPC has given a disk (or is talked to after their reward period is expired)
-            if dialogue_id != self.dialogue_id:
-                new_dialogue = int.from_bytes(dialogue_id, "little")
-                location = DIALOGUE_LOCATION_MAP.get(new_dialogue)
-
-                if location is not None:
-                    await ctx.send_msgs([{
-                        "cmd": "LocationChecks",
-                        "locations": [location]
-                    }])
-
-                self.dialogue_id = dialogue_id
 
             # Check if a textbox is related to a location check (Only used for Cerveau stuff atm)
             if textbox_id != self.textbox_id:
@@ -520,7 +504,6 @@ class MMZero3Client(BizHawkClient):
                 ])
             self.prev_level_value = level_data
 
-            self.dialogue_id = dialogue_id
             self.textbox_id = textbox_id
 
         except bizhawk.RequestFailedError:
