@@ -60,7 +60,6 @@ RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results sc
 DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Item / location tracking
-TEXTBOX_ID_ADDR         = 0x30C30
 ELF_FLAG_ADDR           = 0x3733C
 ITEM_NOTIFY_ADDR        = 0x371E5
 
@@ -78,7 +77,6 @@ CRYSTAL_QUEUE_ADDR      = 0x2F5DC
 
 # AP Related Counters
 SYNC_COUNTER_ADDR       = 0x37342
-WEAPONS_UNLOCKED_ADDR   = 0x3733E 
 
 class MMZero3Client(BizHawkClient):
     game = "Mega Man Zero 3"
@@ -119,10 +117,9 @@ class MMZero3Client(BizHawkClient):
         self.pending_crystals = 0
 
         # Inventories
-        self.textbox_id = bytearray(4)
         self.eReader_bitflag_inventory = [0] * 12
         self.eReader_byte_map_inventory = [0] * 10
-        self.weapon_inventory = bytearray(4)  # 4 bytes, one per weapon: 1 = usable, 0 = locked
+        self.starting_weapon_codes = []  # TEMP: AP item codes for the seed's starting weapons
 
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
@@ -262,7 +259,9 @@ class MMZero3Client(BizHawkClient):
             self.items_pushed = 0
         self.items_applied_seen = items_applied
 
-        pending = ctx.items_received[self.items_pushed:]
+        # Starting weapons go first so a fresh save has something equipped, or else it would just be the Buster
+        all_codes = self.starting_weapon_codes + [int(item.item) for item in ctx.items_received]
+        pending = all_codes[self.items_pushed:]
         if not pending:
             return
 
@@ -275,9 +274,9 @@ class MMZero3Client(BizHawkClient):
         batch = []
         cursor = inbox_write
         count = min(free, len(pending))
-        for net_item in pending[:count]:
+        for code in pending[:count]:
             batch.append((self.ap.addr("itemInbox") + cursor * width,
-                          list(int(net_item.item).to_bytes(width, "little")),
+                          list(code.to_bytes(width, "little")),
                           "Combined WRAM"))
             cursor = (cursor + 1) & mask
 
@@ -299,24 +298,25 @@ class MMZero3Client(BizHawkClient):
                 self.easy_ex_skill = ctx.slot_data.get("easy_ex_skill", 0)
                 self.randomize_weapons = ctx.slot_data.get("randomize_weapons", 0)
                 self.death_link = bool(ctx.slot_data.get("death_link", 0))
+                # Starting weapons are not AP items, but still have to be added to the game via the RAM
                 starting_weapons = ctx.slot_data.get("starting_weapons", [])
-                weapon_name_to_index = {"Buster": 0, "Z-Saber": 1, "Recoil Rod": 2, "Shield Boomerang": 3}
-                for weapon_name in starting_weapons:
-                    idx = weapon_name_to_index.get(weapon_name)
-                    if idx is not None:
-                        self.weapon_inventory[idx] = 1
+                weapon_name_to_code = {"Buster": 224, "Z-Saber": 225,
+                                       "Recoil Rod": 226, "Shield Boomerang": 227}
+                self.starting_weapon_codes = [
+                    weapon_name_to_code[name]
+                    for name in starting_weapons
+                    if name in weapon_name_to_code
+                ]
                 self.options_set = True
 
             # Read game state
             (
-                textbox_id,
                 level_data,
                 results_screen,
                 demo_screen,
                 sync_counter,
                 body_hp,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
-                (TEXTBOX_ID_ADDR,         4, "Combined WRAM"),  # Pointer to Text displayed
                 (CURRENT_LEVEL_ADDR,      1, "Combined WRAM"),  # Current level
                 (RESULTS_SCREEN_ADDR,     1, "Combined WRAM"),  # Results screen flag
                 (DEMO_SCREEN_ADDR,        1, "IWRAM"),          # Demo screen flag
@@ -368,18 +368,6 @@ class MMZero3Client(BizHawkClient):
 
 
 
-            # Check if a textbox is related to a location check (Only used for Cerveau stuff atm)
-            if textbox_id != self.textbox_id:
-                new_textbox = int.from_bytes(textbox_id, "little")
-                location = TEXTBOX_LOCATION_MAP.get(new_textbox)
-
-                if location is not None:
-                    await ctx.send_msgs([{
-                        "cmd": "LocationChecks",
-                        "locations": [location]
-                    }])
-
-                self.textbox_id = textbox_id
 
             if results_screen == b'\x00':
                 self.in_results_screen = False
@@ -504,8 +492,6 @@ class MMZero3Client(BizHawkClient):
                 ])
             self.prev_level_value = level_data
 
-            self.textbox_id = textbox_id
-
         except bizhawk.RequestFailedError:
             pass
 
@@ -578,7 +564,6 @@ class MMZero3Client(BizHawkClient):
         foot_ap    = 0x01
         body_ap    = 0x01
         ex_skill_ap = bytearray(2)
-        weapons_ap  = bytearray(self.weapon_inventory)
 
         received_item_ids = set()
         for item in ctx.items_received:
@@ -591,8 +576,6 @@ class MMZero3Client(BizHawkClient):
             if item_id in EX_SKILL_MAP:
                 byte_index, mask = EX_SKILL_MAP[item_id]
                 ex_skill_ap[byte_index] |= mask
-            if item_id in WEAPON_MAP:
-                weapons_ap[WEAPON_MAP[item_id]] = 1
 
         # Merged: RAM preserves game written state and ensures AP items are always present.
         foot_merged    = bytearray([foot_ram[0] | foot_ap])
@@ -613,6 +596,5 @@ class MMZero3Client(BizHawkClient):
             (FOOT_INV_ADDR,         foot_merged,                           "Combined WRAM"),  # Foot chips (live entity)
             (SAVE_BODY_INV_ADDR,    save_body_merged,                      "Combined WRAM"),  # Body chips (save copy)
             (SAVE_FOOT_INV_ADDR,    save_foot_merged,                      "Combined WRAM"),  # Foot chips (save copy)
-            (WEAPONS_UNLOCKED_ADDR, list(weapons_ap),                      "Combined WRAM"),  # Weapons
         ])
 

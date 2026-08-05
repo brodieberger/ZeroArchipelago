@@ -101,17 +101,6 @@ BYTE_MAP = {
 }
 
 
-
-# Which location check to give based on what is displayed in the textbox. ADDRESS: 2030C30
-# Dialogue ID: location check to give (NPC)
-TEXTBOX_LOCATION_MAP = {
-    # Get Recoil Rod / Shield Boomerang
-    0x08386E8B: 226, # Recoil Rod
-    0x08376EA5: 227, # Shield Boomerang
-    0x08387D83: 226, # Recoil Rod (backup in case of fast forwarding dialogue)
-    0x08387E80: 227, # Same but for shield boomerang
-}
-
 BODY_CHIP_MAP = {
     197: (0, 0x20),  # Ice
     198: (0, 0x08),  # Thunder
@@ -167,13 +156,6 @@ ITEM_SUBTANK_2 = 222
 
 LOC_SUBTANK_1 = 221
 LOC_SUBTANK_2 = 222
-
-WEAPON_MAP = {
-    224: 0,  # Buster
-    225: 1,  # Z-Saber
-    226: 2,  # Recoil Rod
-    227: 3,  # Shield Boomerang
-}
 
 # Filler: AP Item ID -> energy crystals granted
 # TODO add other crystal amounts?
