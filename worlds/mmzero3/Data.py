@@ -1,23 +1,3 @@
-# level RAM byte -> archipelago location ID
-LEVEL_TO_LOCATION = {
-    0x01: 181,  # spacecraft
-    0x02: 182,  # volcano base
-    0x03: 183,  # highway
-    0x04: 184,  # weapons repair factory
-    0x05: 185,  # old residential
-    0x06: 186,  # omega missile
-    0x07: 187,  # twighlight desert
-    0x08: 188,  # forest
-    0x09: 189,  # ice base
-    0x0A: 190,  # area x2
-    0x0B: 191,  # energy facility
-    0x0C: 192,  # snowy plaiuns
-    0x0D: 193,  # sunken library
-    0x0E: 194,  # giant elevator
-    0x0F: 195,  # sub arcadia
-    0x10: 196,  # final level
-}
-
 # Bitflags for eReader content. AP Item ID -> (word_index, bit_position)
 BIT_FLAGS = {
     111: (0, 1),
@@ -101,55 +81,6 @@ BYTE_MAP = {
 }
 
 
-BODY_CHIP_MAP = {
-    197: (0, 0x20),  # Ice
-    198: (0, 0x08),  # Thunder
-    199: (0, 0x10),  # Flame
-    200: (0, 0x02),  # Light
-    201: (0, 0x04),  # Absorber
-}
-
-FOOT_CHIP_MAP = {
-    202: (0, 0x20),  # Spike
-    203: (0, 0x10),  # Quick
-    204: (0, 0x04),  # Double Jump
-    205: (0, 0x08),  # Shadow Dash
-}
-
-EX_SKILL_MAP = {
-    206: (0, 0x04),  # Burst Shot
-    207: (0, 0x80),  # Throw Blade
-    208: (0, 0x20),  # Saber Smash
-    209: (1, 0x01),  # 1000 Slash
-    210: (1, 0x04),  # Shield Sweep
-    211: (0, 0x40),  # Split Heavens
-    212: (0, 0x08),  # Blizzard Arrow
-    213: (0, 0x01),  # Reflect Laser
-    214: (1, 0x02),  # Soul Launcher
-    215: (1, 0x08),  # Orbit Shield
-    216: (0, 0x02),  # V-Shot
-    217: (0, 0x10),  # Gale Attack
-}
-
-#Level-Complete Location ID > EXSkill Obtained Location ID
-LOCATION_TO_EXSKILL = {
-    181: 206,
-    182: 207,
-    183: 208,
-    184: 209,
-    185: 210,
-    186: 211,
-    187: 212,
-    188: 213,
-    189: 214,
-    190: 215,
-    191: 216,
-    192: 217,
-    193: 218,
-    194: 219,
-    195: 220
-}
-
 # Other stuff
 ITEM_SUBTANK_1 = 221
 ITEM_SUBTANK_2 = 222
@@ -161,16 +92,4 @@ LOC_SUBTANK_2 = 222
 # TODO add other crystal amounts?
 CRYSTAL_ITEM_VALUES = {
     301: 100,
-}
-
-LOCATION_TO_CHIP = {
-    182: 199,
-    183: 197,
-    184: 198,
-    185: 200,
-    190: 203, 
-    191: 204,
-    192: 202, 
-    193: 205,
-    194: 201
 }

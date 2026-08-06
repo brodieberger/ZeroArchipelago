@@ -60,18 +60,12 @@ RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results sc
 DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Item / location tracking
-ELF_FLAG_ADDR           = 0x3733C
 ITEM_NOTIFY_ADDR        = 0x371E5
 
 # Inventories
 CHECKED_LOCS_INV_ADDR   = 0x371B8
 EREADER_BITFLAGS_ADDR   = 0x02438
 EREADER_BYTE_MAP_ADDR   = 0x02474
-EX_SKILLS_ADDR          = 0x38068
-BODY_INV_ADDR           = 0x3806C
-FOOT_INV_ADDR           = 0x3806D
-SAVE_BODY_INV_ADDR      = 0x37318
-SAVE_FOOT_INV_ADDR      = 0x37319
 HP_ADDR                 = 0x38044  
 CRYSTAL_QUEUE_ADDR      = 0x2F5DC
 
@@ -96,6 +90,7 @@ class MMZero3Client(BizHawkClient):
         self.ap_disabled = False       # set true in case of a version mismatch between client and the ROM
         self.ap_handshake_logged = False
         self.ap_drop_warned = False
+        self.ap_options_pushed = False  # right now is just easyExSkill written into gAp
         self.items_pushed = 0          # how much of items_received is in the game's RAM
         self.items_applied_seen = 0    # last gAp.itemsApplied; a drop means a reset
 
@@ -197,6 +192,12 @@ class MMZero3Client(BizHawkClient):
                         self.ap.base + EWRAM_BASE, version)
             self.ap_handshake_logged = True
 
+        if self.options_set and not self.ap_options_pushed:
+            await bizhawk.write(ctx.bizhawk_ctx,
+                                [(self.ap.addr("easyExSkill"), [1 if self.easy_ex_skill else 0],
+                                  "Combined WRAM")])
+            self.ap_options_pushed = True
+
         # Non-zero means ApSendLocation found the queue full and threw a check away --
         # the client stalled for 63 checks. Should never happen; say so if it does.
         dropped = dropped_b[0]
@@ -257,6 +258,7 @@ class MMZero3Client(BizHawkClient):
             logger.info("MMZero3: game restarted (applied %d -> %d); resending items.",
                         self.items_applied_seen, items_applied)
             self.items_pushed = 0
+            self.ap_options_pushed = False
         self.items_applied_seen = items_applied
 
         # Starting weapons go first so a fresh save has something equipped, or else it would just be the Buster
@@ -372,33 +374,8 @@ class MMZero3Client(BizHawkClient):
             if results_screen == b'\x00':
                 self.in_results_screen = False
 
-            # Check if the player has completed a level
-            # TODO: This method of checking is prone to breaking using savestates
+            # TODO Have the goal condition be send via the game code too
             if results_screen != b'\x00' and not self.in_results_screen:
-                level_id = int.from_bytes(level_data, byteorder='little')
-                location_id = LEVEL_TO_LOCATION.get(level_id)
-
-                if location_id:
-
-                    # Send completion item
-                    await ctx.send_msgs([{
-                        "cmd": "LocationChecks",
-                        "locations": [location_id]
-                    }])
-
-                    if LOCATION_TO_CHIP.get(location_id):
-                        # Send necessary chip
-                        await ctx.send_msgs([{
-                            "cmd": "LocationChecks",
-                            "locations": [LOCATION_TO_CHIP.get(location_id)]
-                        }])
-
-                    if await self.should_reward_exskill(ctx) or self.easy_ex_skill == 1:
-                        await ctx.send_msgs([{
-                            "cmd": "LocationChecks",
-                            "locations": [LOCATION_TO_EXSKILL.get(location_id)]
-                        }])
-
                 # Completion condition. Runs If the level that was finished was the last level
                 # Logic for Default game goal
                 if self.goal_type == 0:
@@ -518,72 +495,11 @@ class MMZero3Client(BizHawkClient):
 
         return inventory
 
-    async def should_reward_exskill(self, ctx) -> bool:
-        """Determine if an EX Skill should be rewarded after a level."""
-
-        level_rank, elf_flag = await bizhawk.read(
-            ctx.bizhawk_ctx,
-            [
-                (RESULTS_SCREEN_ADDR, 1, "Combined WRAM"),
-                (ELF_FLAG_ADDR,       1, "Combined WRAM"),
-            ]
-        )
-        if level_rank[0] > 85:
-            return True
-
-        # If the player has used a rank increasing cyber elf
-        if elf_flag[0] == 0x01:
-            await bizhawk.write(
-                ctx.bizhawk_ctx,
-                [(ELF_FLAG_ADDR, [0], "Combined WRAM")]
-            )
-            return True
-
-        return False
-
     async def sync_game_state(self, ctx) -> None:
         """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
 
         Done whenever the player collects or receives an item, or transitions between stages."""
 
-        # Read RAM for inventories the game also writes to, plus subtanks
-        (
-            foot_ram,
-            body_ram,
-            save_body_ram,
-            save_foot_ram,
-        ) = await bizhawk.read(ctx.bizhawk_ctx, [
-            (FOOT_INV_ADDR,       1, "Combined WRAM"),  # Live foot chips (disk-based chips written by game)
-            (BODY_INV_ADDR,       1, "Combined WRAM"),  # Live body chips (game writes on equip/load)
-            (SAVE_BODY_INV_ADDR,  1, "Combined WRAM"),  # Save-copy body chips
-            (SAVE_FOOT_INV_ADDR,  1, "Combined WRAM"),  # Save-copy foot chips
-        ])
-
-        # Recompute AP contributions from all received items
-        # bit 0 is always on by default
-        foot_ap    = 0x01
-        body_ap    = 0x01
-        ex_skill_ap = bytearray(2)
-
-        received_item_ids = set()
-        for item in ctx.items_received:
-            item_id = item.item
-            received_item_ids.add(item_id)
-            if item_id in FOOT_CHIP_MAP:
-                foot_ap |= FOOT_CHIP_MAP[item_id][1]
-            if item_id in BODY_CHIP_MAP:
-                body_ap |= BODY_CHIP_MAP[item_id][1]
-            if item_id in EX_SKILL_MAP:
-                byte_index, mask = EX_SKILL_MAP[item_id]
-                ex_skill_ap[byte_index] |= mask
-
-        # Merged: RAM preserves game written state and ensures AP items are always present.
-        foot_merged    = bytearray([foot_ram[0] | foot_ap])
-        body_merged    = bytearray([body_ram[0] | body_ap])
-
-        # Mirror the chips into the save copy (gGameState.save.status) as well.
-        save_body_merged = bytearray([save_body_ram[0] | body_ap])
-        save_foot_merged = bytearray([save_foot_ram[0] | foot_ap])
 
         items_inventory = await self.get_items(ctx)
 
@@ -591,10 +507,5 @@ class MMZero3Client(BizHawkClient):
             (CHECKED_LOCS_INV_ADDR, list(items_inventory),                 "Combined WRAM"),  # Checked locations inventory
             (EREADER_BITFLAGS_ADDR, list(self.eReader_bitflag_inventory),  "Combined WRAM"),  # eReader bitflags
             (EREADER_BYTE_MAP_ADDR, self.eReader_byte_map_inventory,       "Combined WRAM"),  # eReader byte map
-            (EX_SKILLS_ADDR,        ex_skill_ap,                           "Combined WRAM"),  # EX Skills
-            (BODY_INV_ADDR,         body_merged,                           "Combined WRAM"),  # Body chips (live entity)
-            (FOOT_INV_ADDR,         foot_merged,                           "Combined WRAM"),  # Foot chips (live entity)
-            (SAVE_BODY_INV_ADDR,    save_body_merged,                      "Combined WRAM"),  # Body chips (save copy)
-            (SAVE_FOOT_INV_ADDR,    save_foot_merged,                      "Combined WRAM"),  # Foot chips (save copy)
         ])
 

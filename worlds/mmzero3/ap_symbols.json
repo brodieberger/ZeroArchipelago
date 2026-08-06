@@ -3,7 +3,7 @@
   "ready": 861556801,
   "ready_hex": "0x335A5041",
   "ready_ascii": "APZ3",
-  "version": 2,
+  "version": 3,
   "ap_state": {
     "address": 33812096,
     "size": 220,
@@ -63,10 +63,15 @@
         "size": 1,
         "count": 45
       },
-      "_pad": {
+      "easyExSkill": {
         "offset": 218,
         "size": 1,
-        "count": 2
+        "count": 1
+      },
+      "_pad": {
+        "offset": 219,
+        "size": 1,
+        "count": 1
       }
     }
   },
