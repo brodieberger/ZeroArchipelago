@@ -69,8 +69,7 @@ DEMO_SCREEN_ADDR        = 0x02AE2
 CHECKED_LOCS_INV_ADDR   = 0x371B8
 EREADER_BITFLAGS_ADDR   = 0x02438
 EREADER_BYTE_MAP_ADDR   = 0x02474
-HP_ADDR                 = 0x38044  
-CRYSTAL_QUEUE_ADDR      = 0x2F5DC
+HP_ADDR                 = 0x38044
 
 # AP Related Counters
 SYNC_COUNTER_ADDR       = 0x37342
@@ -111,7 +110,6 @@ class MMZero3Client(BizHawkClient):
         # Item tracking
         self.received_index = 0
         self.collected_disks = 0
-        self.pending_crystals = 0
 
         # Inventories
         self.eReader_bitflag_inventory = [0] * 12
@@ -371,22 +369,9 @@ class MMZero3Client(BizHawkClient):
                     addr, value = BYTE_MAP[item.item]
                     self.eReader_byte_map_inventory[addr - EREADER_BYTE_MAP_ADDR] = value
 
-                if item.item in CRYSTAL_ITEM_VALUES:
-                    self.pending_crystals += CRYSTAL_ITEM_VALUES[item.item]
 
 
             self.received_index = len(ctx.items_received)
-
-            if self.pending_crystals and in_gameplay:
-                crystals_queued = int.from_bytes(
-                    (await bizhawk.read(ctx.bizhawk_ctx, [(CRYSTAL_QUEUE_ADDR, 4, "Combined WRAM")]))[0],
-                    "little",
-                )
-                crystals_queued = min(crystals_queued + self.pending_crystals, 9999)
-                await bizhawk.write(ctx.bizhawk_ctx, [
-                    (CRYSTAL_QUEUE_ADDR, list(crystals_queued.to_bytes(4, "little")), "Combined WRAM"),
-                ])
-                self.pending_crystals = 0
 
             # ---- sync ----------------------------------------------------------------
             if needs_sync:

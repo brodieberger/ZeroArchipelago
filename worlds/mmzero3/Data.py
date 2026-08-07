@@ -87,9 +87,3 @@ ITEM_SUBTANK_2 = 222
 
 LOC_SUBTANK_1 = 221
 LOC_SUBTANK_2 = 222
-
-# Filler: AP Item ID -> energy crystals granted
-# TODO add other crystal amounts?
-CRYSTAL_ITEM_VALUES = {
-    301: 100,
-}
