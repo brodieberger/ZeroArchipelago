@@ -3,10 +3,10 @@
   "ready": 861556801,
   "ready_hex": "0x335A5041",
   "ready_ascii": "APZ3",
-  "version": 3,
+  "version": 5,
   "ap_state": {
     "address": 33812096,
-    "size": 220,
+    "size": 76,
     "fields": {
       "ready": {
         "offset": 0,
@@ -18,58 +18,38 @@
         "size": 2,
         "count": 1
       },
-      "locQueue": {
-        "offset": 6,
-        "size": 2,
-        "count": 64
-      },
       "itemInbox": {
-        "offset": 134,
+        "offset": 6,
         "size": 2,
         "count": 16
       },
       "itemsApplied": {
-        "offset": 166,
+        "offset": 38,
         "size": 2,
         "count": 1
       },
-      "locWrite": {
-        "offset": 168,
+      "inboxWriteIndex": {
+        "offset": 40,
         "size": 1,
         "count": 1
       },
-      "locRead": {
-        "offset": 169,
+      "inboxReadIndex": {
+        "offset": 41,
         "size": 1,
         "count": 1
       },
-      "inboxWrite": {
-        "offset": 170,
+      "checkedLocations": {
+        "offset": 42,
         "size": 1,
-        "count": 1
-      },
-      "inboxRead": {
-        "offset": 171,
-        "size": 1,
-        "count": 1
-      },
-      "locDropped": {
-        "offset": 172,
-        "size": 1,
-        "count": 1
-      },
-      "disks": {
-        "offset": 173,
-        "size": 1,
-        "count": 45
+        "count": 29
       },
       "easyExSkill": {
-        "offset": 218,
+        "offset": 71,
         "size": 1,
         "count": 1
       },
       "rankElfUsed": {
-        "offset": 219,
+        "offset": 72,
         "size": 1,
         "count": 1
       }
