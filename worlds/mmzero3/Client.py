@@ -80,7 +80,6 @@ class MMZero3Client(BizHawkClient):
 
         # State tracking
         self.prev_level_value = None
-        self.in_results_screen = False
         self.player_warned = False
 
         # gAp stuff. `ap` is None only if ap_symbols.json failed to load.
@@ -105,7 +104,6 @@ class MMZero3Client(BizHawkClient):
 
         # Item tracking
         self.received_index = 0
-        self.collected_disks = 0
 
         # Inventories
         self.starting_weapon_codes = []  # TEMP: AP item codes for the seed's starting weapons
@@ -146,11 +144,14 @@ class MMZero3Client(BizHawkClient):
             mailbox_live = False
 
             inbox_write = inbox_read = items_applied = 0
+            final_cleared = False
+            disks_owned = 0
 
             if (self.ap is not None and not self.ap_disabled
                     and ctx.slot is not None and ctx.server_locations):
                 (ready_bytes, version_bytes,
-                 inbox_write_bytes, inbox_read_bytes, items_applied_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
+                 inbox_write_bytes, inbox_read_bytes, items_applied_bytes,
+                 final_cleared_bytes, disks_owned_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
                     # Ready and version test
                     (self.ap.addr("ready"),        4, "Combined WRAM"),
                     (self.ap.addr("version"),      2, "Combined WRAM"),
@@ -161,6 +162,10 @@ class MMZero3Client(BizHawkClient):
                     (self.ap.addr("inboxWriteIndex"), 1, "Combined WRAM"),
                     (self.ap.addr("inboxReadIndex"),  1, "Combined WRAM"),
                     (self.ap.addr("itemsApplied"),    2, "Combined WRAM"),
+
+                    # Goal information, game to AP client.
+                    (self.ap.addr("finalCleared"),    1, "Combined WRAM"),
+                    (self.ap.addr("disksOwned"),      2, "Combined WRAM"),
                 ])
 
                 # ApInit runs on the first Process_Game(), so check it to see if the game is still booting.
@@ -177,6 +182,8 @@ class MMZero3Client(BizHawkClient):
                         mailbox_live = True
                         inbox_write, inbox_read = inbox_write_bytes[0], inbox_read_bytes[0]
                         items_applied = int.from_bytes(items_applied_bytes, "little")
+                        final_cleared = final_cleared_bytes[0] != 0
+                        disks_owned = int.from_bytes(disks_owned_bytes, "little")
 
                         if not self.ap_handshake_logged:
                             logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
@@ -293,56 +300,35 @@ class MMZero3Client(BizHawkClient):
                 elif hp > 0:
                     self.sending_death_link = False
 
-            # ---- results screen and goal ---------------------------------------------
-            if results_screen == b'\x00':
-                self.in_results_screen = False
+            # ---- goal ----------------------------------------------------------------
+            if mailbox_live and final_cleared and not ctx.finished_game:
+                if self.goal_type == 1 or disks_owned >= self.required_disks:
+                    if self.goal_type == 1:
+                        text = "Final stage cleared! Game completed!"
+                    elif self.player_warned:
+                        text = f"{disks_owned} Disks collected! Game completed!"
+                    else:
+                        extra_disks_collected = disks_owned - self.required_disks
+                        text = (f"Final stage cleared with {disks_owned} Disks, "
+                                f"{extra_disks_collected} more than needed!")
+                    await ctx.send_msgs([
+                        {"cmd": "Say", "text": text},
+                        {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
+                    ])
+                    ctx.finished_game = True
+                elif not self.player_warned:
+                    await ctx.send_msgs([
+                        {"cmd": "Say", "text": f"Final stage cleared! You still need "
+                                               f"{self.required_disks - disks_owned} more disks."},
+                        {"cmd": "Say", "text": "Collect more disks and the goal will send itself."},
+                        {"cmd": "Say", "text": "Do NOT save over your file after the credits!"} # TODO is this needed?
+                    ])
+                    self.player_warned = True
 
-            # TODO Have the goal condition be send via the game code too
-            if results_screen != b'\x00' and not self.in_results_screen:
-                # Completion condition. Runs If the level that was finished was the last level
-                # Logic for Default game goal
-                if self.goal_type == 0:
-                    if level_data == b'\x10' and self.collected_disks >= self.required_disks and not ctx.finished_game:
-                        await ctx.send_msgs([{
-                            "cmd": "Say", "text": f"Final stage cleared! You had {self.collected_disks} Disks, which was {self.collected_disks - self.required_disks} more disks than needed!"
-                            }])
-                        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                        ctx.finished_game = True
-                    elif level_data == b'\x10' and self.collected_disks < self.required_disks and not self.player_warned and not ctx.finished_game:
-                        await ctx.send_msgs([
-                            {"cmd": "Say", "text": f"Final stage cleared! You still need {self.required_disks - self.collected_disks} more disks."},
-                            {"cmd": "Say", "text": "Load a previous save and collect more disks."},
-                            {"cmd": "Say", "text": "Do NOT save over your file after the credits!"}
-                        ])
-                        self.player_warned = True
-                # Logic for Vanilla
-                elif self.goal_type == 1:
-                    if level_data == b'\x10' and ctx.finished_game == False:
-                        await ctx.send_msgs([{
-                            "cmd": "Say", "text": "Final Stage Cleared! Game completed!"
-                            }])
-                        await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                        ctx.finished_game = True
-
-                self.in_results_screen = True
-
-            # Additional check to see if the player collected enough disks AFTER beating final stage. Only used in default game goal
-            if self.player_warned == True and self.collected_disks >= self.required_disks and ctx.finished_game == False:
-                await ctx.send_msgs([{
-                    "cmd": "Say", "text": f"{self.required_disks} Disks collected! Game completed!"
-                }])
-                await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-                ctx.finished_game = True
-
-            # ---- disk count for completion goal ---------------------------------------------
-            for i in range(self.received_index, len(ctx.items_received)):
+            # A new item means new checked locations may need restoring into save.disk.
+            if len(ctx.items_received) != self.received_index:
                 needs_sync = True
-                item = ctx.items_received[i]
-
-                if 1 <= item.item <= 180:
-                    self.collected_disks += 1
-
-            self.received_index = len(ctx.items_received)
+                self.received_index = len(ctx.items_received)
 
             # ---- sync ----------------------------------------------------------------
             if needs_sync:

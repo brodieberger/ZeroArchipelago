@@ -3,7 +3,7 @@
   "ready": 861556801,
   "ready_hex": "0x335A5041",
   "ready_ascii": "APZ3",
-  "version": 8,
+  "version": 9,
   "ap_state": {
     "address": 33812096,
     "size": 76,
@@ -51,6 +51,16 @@
       "rankElfUsed": {
         "offset": 72,
         "size": 1,
+        "count": 1
+      },
+      "finalCleared": {
+        "offset": 73,
+        "size": 1,
+        "count": 1
+      },
+      "disksOwned": {
+        "offset": 74,
+        "size": 2,
         "count": 1
       }
     }
