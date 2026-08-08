@@ -64,11 +64,13 @@ RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results sc
 DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Inventories
-CHECKED_LOCS_INV_ADDR   = 0x371B8
+CHECKED_LOCS_INV_ADDR   = 0x371B8   # save.disk -- 180 disks, 4 disks per byte
+DISK_BYTES              = 45
 HP_ADDR                 = 0x38044
 
-# AP Related Counters
-SYNC_COUNTER_ADDR       = 0x37342
+# The four Sunken Library data files, left out of the save.disk restore as they are level logic.
+# Numbers are diskno == AP location: DISK_FILE_D 10, J 16, K 17, L 18
+SKIP_DISK_RESTORE       = frozenset({10, 16, 17, 18})
 
 class MMZero3Client(BizHawkClient):
     game = "Mega Man Zero 3"
@@ -197,14 +199,14 @@ class MMZero3Client(BizHawkClient):
                 level_data,
                 results_screen,
                 demo_screen,
-                sync_counter,
                 body_hp,
+                collected_in_game,
             ) = await bizhawk.read(ctx.bizhawk_ctx, [
                 (CURRENT_LEVEL_ADDR,      1, "Combined WRAM"),  # Current level
                 (RESULTS_SCREEN_ADDR,     1, "Combined WRAM"),  # Results screen flag
                 (DEMO_SCREEN_ADDR,        1, "IWRAM"),          # Demo screen flag
-                (SYNC_COUNTER_ADDR,       2, "Combined WRAM"),  # AP sync counter
                 (HP_ADDR,                 2, "Combined WRAM"),  # Live Zero HP (DeathLink)
+                (CHECKED_LOCS_INV_ADDR,  DISK_BYTES, "Combined WRAM"),  # save.disk
             ])
 
             # Don't process anything while on the title/menu screen.
@@ -266,21 +268,6 @@ class MMZero3Client(BizHawkClient):
                 await self.push_items(ctx, inbox_write, inbox_read, items_applied)
 
             # ---- DeathLink -----------------------------------------------------------
-            # Will be changed to true if the gamestate needs to be synchronized.
-            # Either on some update or the player changing stages.
-            needs_sync = False
-
-            # When the player transitions into the hub or a level, sync the inventory.
-            # Level 0x11 is the resistance base hub.
-            if self.prev_level_value != level_data:
-                needs_sync = True
-
-            # Force a sync if the counter doesn't match the server's item count.
-            # Catches desyncs from savestates without requiring a level transition.
-            # TODO use this as a way for the game itself to force a resync by setting it to 999 or something
-            if int.from_bytes(sync_counter, "little") != len(ctx.items_received):
-                needs_sync = True
-
             if self.death_link:
                 await ctx.update_death_link(True)
 
@@ -325,55 +312,31 @@ class MMZero3Client(BizHawkClient):
                     ])
                     self.player_warned = True
 
-            # A new item means new checked locations may need restoring into save.disk.
-            if len(ctx.items_received) != self.received_index:
-                needs_sync = True
-                self.received_index = len(ctx.items_received)
-
-            # ---- sync ----------------------------------------------------------------
-            if needs_sync:
-                await self.sync_game_state(ctx)
-                await bizhawk.write(ctx.bizhawk_ctx, [
-                    (SYNC_COUNTER_ADDR, list(len(ctx.items_received).to_bytes(2, "little")), "Combined WRAM"),
-                ])
+            await self.restore_collected_disks(ctx, collected_in_game)
             self.prev_level_value = level_data
 
         except bizhawk.RequestFailedError:
             pass
 
-    async def get_items(self, ctx) -> bytearray:
-        """Updates items collected by Zero based on ctx.checked_locations. Used in case of player using savestates.
-        Only lower nibble (found state) is updated. Upper nibble (opened state) is untouched."""
+    async def restore_collected_disks(self, ctx, collected_in_game: bytes) -> None:
+        """
+        Keep save.disk synced with the locations the AP server says are checked.
+        Basically ensures that disks that are collected don't show up in game again.
 
-        inventory = bytearray((await bizhawk.read(
-                        ctx.bizhawk_ctx,
-                        [(CHECKED_LOCS_INV_ADDR, 45, "Combined WRAM")]
-                    ))[0])
-
+        Only the lower nibble (found) is touched. The upper nibble is the disks opened state
+        """
+        collected_after_restore = bytearray(collected_in_game)
         for location_id in ctx.checked_locations:
-            if location_id in {10, 16, 17}:
+            if location_id in SKIP_DISK_RESTORE:
                 continue
-
             if 1 <= location_id <= 180:
-                item_index = location_id - 1
-                byte_index = item_index // 4
-                bit_position = item_index % 4
+                disk_index = location_id - 1
+                collected_after_restore[disk_index // 4] |= 1 << (disk_index % 4)
 
-                # Only set the lower nibble bit (bit positions 0–3)
-                inventory[byte_index] |= (1 << bit_position)
-
-        return inventory
-
-    async def sync_game_state(self, ctx) -> None:
-        """Syncronizes the player's collected items and inventory in order to prevent desyncs when using savestates.
-
-        Done whenever the player collects or receives an item, or transitions between stages."""
-
-        items_inventory = await self.get_items(ctx)
-
-        await bizhawk.write(ctx.bizhawk_ctx, [
-            (CHECKED_LOCS_INV_ADDR, list(items_inventory), "Combined WRAM"),
-        ])
+        if collected_after_restore != collected_in_game:
+            await bizhawk.write(ctx.bizhawk_ctx, [
+                (CHECKED_LOCS_INV_ADDR, list(collected_after_restore), "Combined WRAM"),
+            ])
 
     async def push_items(self, ctx: "BizHawkClientContext",
                          inbox_write: int, inbox_read: int, items_applied: int) -> None:
