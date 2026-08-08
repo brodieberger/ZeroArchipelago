@@ -429,16 +429,17 @@ class MMZero3Client(BizHawkClient):
         # One slot is always left empty, otherwise a full ring would look identical to an empty one.
         max_items_waiting = slot_count - 1
 
-        # itemsApplied going backwards means the game rewound for any reason. So resend from the start.
+        # Starting weapons go first
+        every_code = self.starting_weapon_codes + [int(item.item) for item in ctx.items_received]
+
+        # itemsApplied going backwards means the game rewound for any reason.
         if items_applied < self.items_applied_seen:
-            logger.info("MMZero3: game restarted (applied %d -> %d); resending items.",
-                        self.items_applied_seen, items_applied)
-            self.items_pushed = 0
+            logger.info("MMZero3: game rewound (applied %d -> %d); resuming from %d.",
+                        self.items_applied_seen, items_applied, items_applied)
+            self.items_pushed = min(items_applied, len(every_code))
             self.ap_options_pushed = False
         self.items_applied_seen = items_applied
 
-        # Starting weapons go first
-        every_code = self.starting_weapon_codes + [int(item.item) for item in ctx.items_received]
         codes_to_push = every_code[self.items_pushed:]
         if not codes_to_push:
             return
