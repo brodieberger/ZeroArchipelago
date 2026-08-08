@@ -1,14 +1,19 @@
 from dataclasses import dataclass
 import os
+import pkgutil
 import Utils
 from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes, APPatchExtension
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from settings import get_settings
 import settings
 import json
 
 if TYPE_CHECKING:
     from . import MMZero3World
+
+
+# Bit positions in ZeroStatus.unlockedWeapon.
+WEAPON_BITS = {"Buster": 0, "Z-Saber": 1, "Recoil Rod": 2, "Shield Boomerang": 3}
 
 
 class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
@@ -32,11 +37,39 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
 
         return base_rom_bytes
 
-def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
-    """Seed data that will be eventually written into the ROM.
+def load_ap_symbols() -> dict:
+    raw = pkgutil.get_data(__name__, "ap_symbols.json")
+    if raw is None:
+        raise FileNotFoundError("ap_symbols.json not found in the apworld")
+    return json.loads(raw.decode("utf-8"))
 
-    (goal, required disks, starting weapons) as gApSeedConfig read from ap_symbols.json.
+
+def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
+    """Write this seed's settings over ApSeedConfig in the ROM.
+
+    struct ApSeedConfig {
+        u16 requiredDisks;
+        u8  startingWeapons;
+        u8  easyExSkill;
+    };
     """
+    starting_weapons = 0
+    for name in world.starting_weapons:
+        starting_weapons |= 1 << WEAPON_BITS[name]
+
+    values = {
+        "requiredDisks": world.options.required_secret_disks.value,
+        "startingWeapons": starting_weapons,
+        "easyExSkill": 1 if world.options.easy_ex_skill.value else 0,
+    }
+
+    layout = load_ap_symbols()["seed_config"]
+    seed_config = bytearray(layout["size"])
+    for name, field in layout["fields"].items():
+        at = field["offset"]
+        seed_config[at:at + field["size"]] = values[name].to_bytes(field["size"], "little")
+
+    patch.write_token(APTokenTypes.WRITE, layout["rom_offset"], bytes(seed_config))
     patch.write_file("token_data.bin", patch.get_token_binary())
 
 

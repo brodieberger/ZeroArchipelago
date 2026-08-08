@@ -84,7 +84,6 @@ class MMZero3Client(BizHawkClient):
         self.ap = load_ap_symbols()
         self.ap_disabled = False       # set true in case of a version mismatch between client and the ROM
         self.ap_handshake_logged = False
-        self.ap_options_pushed = False  # right now is just easyExSkill written into gAp
         self.locations_reported = set()  # location IDs already forwarded to the server
         self.items_pushed = 0          # how much of items_received is in the game's RAM
         self.items_applied_seen = 0    # last gAp.itemsApplied; a drop means a reset
@@ -92,8 +91,6 @@ class MMZero3Client(BizHawkClient):
         # Options (overwritten from slot data)
         self.options_set = False
         self.required_disks = 80
-        self.goal_type = 0  # 0 is for default (kill boss with enough disks), 1 is vanilla (just kill the boss)
-        self.easy_ex_skill = 0
 
         # DeathLink
         self.death_link = False
@@ -102,9 +99,6 @@ class MMZero3Client(BizHawkClient):
 
         # Item tracking
         self.received_index = 0
-
-        # Inventories
-        self.starting_weapon_codes = []  # TEMP: AP item codes for the seed's starting weapons
 
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
@@ -202,27 +196,8 @@ class MMZero3Client(BizHawkClient):
             # ---- options -------------------------------------------------------------
             if ctx.slot_data and not self.options_set:
                 self.required_disks = ctx.slot_data.get("required_secret_disks", 80)
-                self.goal_type = ctx.slot_data.get("goal", 0)
-                self.easy_ex_skill = ctx.slot_data.get("easy_ex_skill", 0)
                 self.death_link = bool(ctx.slot_data.get("death_link", 0))
-                # Starting weapons are not AP items, but still have to be added to the game via the RAM
-                starting_weapons = ctx.slot_data.get("starting_weapons", [])
-                weapon_name_to_code = {"Buster": 224, "Z-Saber": 225,
-                                       "Recoil Rod": 226, "Shield Boomerang": 227}
-                self.starting_weapon_codes = [
-                    weapon_name_to_code[name]
-                    for name in starting_weapons
-                    if name in weapon_name_to_code
-                ]
                 self.options_set = True
-
-            # ApSendStageClear() decides the A+ rank check itself, so the ROM needs this option for logic reasons.
-            # ApInit() defaults it off, so it is re-pushed after any handshake, not once a session.
-            if mailbox_live and self.options_set and not self.ap_options_pushed:
-                await bizhawk.write(ctx.bizhawk_ctx,
-                                    [(self.ap.addr("easyExSkill"), [1 if self.easy_ex_skill else 0],
-                                      "Combined WRAM")])
-                self.ap_options_pushed = True
 
             # ---- read checked locations (game to AP client) -----------------------------
             if mailbox_live:
@@ -279,8 +254,8 @@ class MMZero3Client(BizHawkClient):
 
             # ---- goal ----------------------------------------------------------------
             if mailbox_live and final_cleared and not ctx.finished_game:
-                if self.goal_type == 1 or disks_owned >= self.required_disks:
-                    if self.goal_type == 1:
+                if disks_owned >= self.required_disks:
+                    if self.required_disks == 0:
                         text = "Final stage cleared! Game completed!"
                     elif self.player_warned:
                         text = f"{disks_owned} Disks collected! Game completed!"
@@ -334,15 +309,13 @@ class MMZero3Client(BizHawkClient):
         wrap_mask = slot_count - 1
         max_items_waiting = slot_count - 1
 
-        # Starting weapons go first
-        every_code = self.starting_weapon_codes + [int(item.item) for item in ctx.items_received]
+        every_code = [int(item.item) for item in ctx.items_received]
 
         # itemsApplied going backwards means the game rewound for any reason.
         if items_applied < self.items_applied_seen:
             logger.info("MMZero3: game rewound (applied %d -> %d); resuming from %d.",
                         self.items_applied_seen, items_applied, items_applied)
             self.items_pushed = min(items_applied, len(every_code))
-            self.ap_options_pushed = False
         self.items_applied_seen = items_applied
 
         codes_to_push = every_code[self.items_pushed:]

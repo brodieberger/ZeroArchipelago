@@ -3,7 +3,7 @@
   "ready": 861556801,
   "ready_hex": "0x335A5041",
   "ready_ascii": "APZ3",
-  "version": 11,
+  "version": 13,
   "ap_state": {
     "address": 33812096,
     "size": 80,
@@ -43,18 +43,13 @@
         "size": 1,
         "count": 29
       },
-      "easyExSkill": {
+      "rankElfUsed": {
         "offset": 71,
         "size": 1,
         "count": 1
       },
-      "rankElfUsed": {
-        "offset": 72,
-        "size": 1,
-        "count": 1
-      },
       "finalCleared": {
-        "offset": 73,
+        "offset": 72,
         "size": 1,
         "count": 1
       },
@@ -75,6 +70,28 @@
       }
     }
   },
+  "seed_config": {
+    "address": 142607968,
+    "rom_offset": 8390240,
+    "size": 4,
+    "fields": {
+      "requiredDisks": {
+        "offset": 0,
+        "size": 2,
+        "count": 1
+      },
+      "startingWeapons": {
+        "offset": 2,
+        "size": 1,
+        "count": 1
+      },
+      "easyExSkill": {
+        "offset": 3,
+        "size": 1,
+        "count": 1
+      }
+    }
+  },
   "symbols": {
     "gAp": 33812096,
     "gGameState": 33754784,
@@ -84,9 +101,8 @@
     "gPlayers": 33783712,
     "gScore": 33751392,
     "gTextWindow": 33754128,
-    "gECrystalGainAmount": 33748444
+    "gECrystalGainAmount": 33748444,
+    "gApSeedConfig": 142607968
   },
-  "missing": [
-    "gApSeedConfig"
-  ]
+  "missing": []
 }
