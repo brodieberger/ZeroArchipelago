@@ -3,10 +3,10 @@
   "ready": 861556801,
   "ready_hex": "0x335A5041",
   "ready_ascii": "APZ3",
-  "version": 9,
+  "version": 10,
   "ap_state": {
     "address": 33812096,
-    "size": 76,
+    "size": 80,
     "fields": {
       "ready": {
         "offset": 0,
@@ -61,6 +61,16 @@
       "disksOwned": {
         "offset": 74,
         "size": 2,
+        "count": 1
+      },
+      "deathCount": {
+        "offset": 76,
+        "size": 2,
+        "count": 1
+      },
+      "inGameplay": {
+        "offset": 78,
+        "size": 1,
         "count": 1
       }
     }

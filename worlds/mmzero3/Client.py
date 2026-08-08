@@ -58,15 +58,15 @@ def load_ap_symbols() -> Optional[ApBlock]:
 # ROM
 ROM_NAME_ADDR           = 0x0A0
 
-# Game state
-CURRENT_LEVEL_ADDR      = 0x30164
-RESULTS_SCREEN_ADDR     = 0x30165  # Also encodes level rank score on results screen
-DEMO_SCREEN_ADDR        = 0x02AE2
-
 # Inventories
 CHECKED_LOCS_INV_ADDR   = 0x371B8   # save.disk -- 180 disks, 4 disks per byte
 DISK_BYTES              = 45
-HP_ADDR                 = 0x38044
+HP_ADDR                 = 0x38044   # written to apply a received death; never read
+
+# How long a death we caused ourselves stays un-relayed. Only has to outlast the couple of polls
+# between poking HP and the ROM counting the death; expires so a poke that somehow fails to kill
+# cannot swallow a later real death.
+DEATHLINK_WAIT_WINDOW   = 3.0
 
 # The four Sunken Library data files, left out of the save.disk restore as they are level logic.
 # Numbers are diskno == AP location: DISK_FILE_D 10, J 16, K 17, L 18
@@ -81,7 +81,6 @@ class MMZero3Client(BizHawkClient):
         super().__init__()
 
         # State tracking
-        self.prev_level_value = None
         self.player_warned = False
 
         # gAp stuff. `ap` is None only if ap_symbols.json failed to load.
@@ -102,7 +101,8 @@ class MMZero3Client(BizHawkClient):
         # DeathLink
         self.death_link = False
         self.pending_death_link = False
-        self.sending_death_link = True
+        self.death_count_seen = None   # last gAp.deathCount; None until the mailbox is live
+        self.suppress_death_until = 0.0  # deaths we caused ourselves, not to be relayed back
 
         # Item tracking
         self.received_index = 0
@@ -132,7 +132,6 @@ class MMZero3Client(BizHawkClient):
                 self.on_deathlink(ctx)
 
     async def send_deathlink(self, ctx: "BizHawkClientContext") -> None:
-        self.sending_death_link = True
         ctx.last_death_link = time.time()
         await ctx.send_death("Zero was destroyed.")
 
@@ -148,12 +147,15 @@ class MMZero3Client(BizHawkClient):
             inbox_write = inbox_read = items_applied = 0
             final_cleared = False
             disks_owned = 0
+            death_count = None
+            in_gameplay = False
 
             if (self.ap is not None and not self.ap_disabled
                     and ctx.slot is not None and ctx.server_locations):
                 (ready_bytes, version_bytes,
                  inbox_write_bytes, inbox_read_bytes, items_applied_bytes,
-                 final_cleared_bytes, disks_owned_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
+                 final_cleared_bytes, disks_owned_bytes,
+                 death_count_bytes, in_gameplay_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
                     # Ready and version test
                     (self.ap.addr("ready"),        4, "Combined WRAM"),
                     (self.ap.addr("version"),      2, "Combined WRAM"),
@@ -168,6 +170,10 @@ class MMZero3Client(BizHawkClient):
                     # Goal information, game to AP client.
                     (self.ap.addr("finalCleared"),    1, "Combined WRAM"),
                     (self.ap.addr("disksOwned"),      2, "Combined WRAM"),
+
+                    # DeathLink facts, game to AP client.
+                    (self.ap.addr("deathCount"),      2, "Combined WRAM"),
+                    (self.ap.addr("inGameplay"),      1, "Combined WRAM"),
                 ])
 
                 # ApInit runs on the first Process_Game(), so check it to see if the game is still booting.
@@ -186,6 +192,8 @@ class MMZero3Client(BizHawkClient):
                         items_applied = int.from_bytes(items_applied_bytes, "little")
                         final_cleared = final_cleared_bytes[0] != 0
                         disks_owned = int.from_bytes(disks_owned_bytes, "little")
+                        death_count = int.from_bytes(death_count_bytes, "little")
+                        in_gameplay = in_gameplay_bytes[0] != 0
 
                         if not self.ap_handshake_logged:
                             logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
@@ -193,26 +201,10 @@ class MMZero3Client(BizHawkClient):
                             self.ap_handshake_logged = True
 
 
-            # ---- LEGACY GAME STUFF ----------------------------------------------------------
-            # TODO Most of this has to go
-            (
-                level_data,
-                results_screen,
-                demo_screen,
-                body_hp,
-                collected_in_game,
-            ) = await bizhawk.read(ctx.bizhawk_ctx, [
-                (CURRENT_LEVEL_ADDR,      1, "Combined WRAM"),  # Current level
-                (RESULTS_SCREEN_ADDR,     1, "Combined WRAM"),  # Results screen flag
-                (DEMO_SCREEN_ADDR,        1, "IWRAM"),          # Demo screen flag
-                (HP_ADDR,                 2, "Combined WRAM"),  # Live Zero HP (DeathLink)
-                (CHECKED_LOCS_INV_ADDR,  DISK_BYTES, "Combined WRAM"),  # save.disk
+            # ---- OTHER GAME STUFF ----------------------------------------------------------
+            (collected_in_game,) = await bizhawk.read(ctx.bizhawk_ctx, [
+                (CHECKED_LOCS_INV_ADDR, DISK_BYTES, "Combined WRAM"),   # save.disk
             ])
-
-            # Don't process anything while on the title/menu screen.
-            if level_data == b'\x00':
-                self.prev_level_value = b'\x00'
-                return
 
             # ---- options -------------------------------------------------------------
             if ctx.slot_data and not self.options_set:
@@ -263,6 +255,7 @@ class MMZero3Client(BizHawkClient):
                     await ctx.send_msgs([{"cmd": "LocationChecks", "locations": newly_checked}])
                     logger.debug("MMZero3: reported %d location(s): %s",
                                  len(newly_checked), newly_checked)
+
             # ---- push items (AP client to game) -----------------------------------------
             if mailbox_live:
                 await self.push_items(ctx, inbox_write, inbox_read, items_applied)
@@ -271,21 +264,28 @@ class MMZero3Client(BizHawkClient):
             if self.death_link:
                 await ctx.update_death_link(True)
 
-            hp = int.from_bytes(body_hp, "little", signed=True)
-            level_unchanged = self.prev_level_value == level_data
-            in_gameplay = level_unchanged and demo_screen != b'\x00' and results_screen == b'\x00'
+            if mailbox_live:
+                if self.death_count_seen is None:
+                    # First sight of a live mailbox: adopt the count rather than treat every
+                    # death so far as new. Also covers a client restart mid-session.
+                    self.death_count_seen = death_count
+                elif death_count > self.death_count_seen:
+                    self.death_count_seen = death_count
+                    if time.time() < self.suppress_death_until:
+                        # The death we just caused by honouring someone else's. Relaying it
+                        # would bounce back and forth around the group forever.
+                        self.suppress_death_until = 0.0
+                    elif "DeathLink" in ctx.tags:
+                        await self.send_deathlink(ctx)
+                elif death_count < self.death_count_seen:
+                    # gAp lives in EWRAM, so loading a savestate rewinds the counter. Nobody
+                    # died; re-baseline so the next real death still registers as an increase.
+                    self.death_count_seen = death_count
 
-            if self.pending_death_link:
+            if self.pending_death_link and in_gameplay:
                 self.pending_death_link = False
-                self.sending_death_link = True
-                if in_gameplay:
-                    await bizhawk.write(ctx.bizhawk_ctx, [(HP_ADDR, [0, 0], "Combined WRAM")])
-
-            if "DeathLink" in ctx.tags and ctx.last_death_link + 1 < time.time():
-                if in_gameplay and hp <= 0 and not self.sending_death_link:
-                    await self.send_deathlink(ctx)
-                elif hp > 0:
-                    self.sending_death_link = False
+                self.suppress_death_until = time.time() + DEATHLINK_WAIT_WINDOW
+                await bizhawk.write(ctx.bizhawk_ctx, [(HP_ADDR, [0, 0], "Combined WRAM")])
 
             # ---- goal ----------------------------------------------------------------
             if mailbox_live and final_cleared and not ctx.finished_game:
@@ -313,7 +313,6 @@ class MMZero3Client(BizHawkClient):
                     self.player_warned = True
 
             await self.restore_collected_disks(ctx, collected_in_game)
-            self.prev_level_value = level_data
 
         except bizhawk.RequestFailedError:
             pass
@@ -343,7 +342,6 @@ class MMZero3Client(BizHawkClient):
         """Hand received items to the game through the itemInbox field."""
         slot_count = self.ap.count("itemInbox")
         wrap_mask = slot_count - 1
-        # One slot is always left empty, otherwise a full ring would look identical to an empty one.
         max_items_waiting = slot_count - 1
 
         # Starting weapons go first
