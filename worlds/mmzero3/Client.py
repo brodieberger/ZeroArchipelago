@@ -8,8 +8,6 @@ from NetUtils import ClientStatus
 import worlds._bizhawk as bizhawk
 from worlds._bizhawk.client import BizHawkClient
 
-from .Data import *
-
 if TYPE_CHECKING:
     from worlds._bizhawk.context import BizHawkClientContext
 
@@ -67,8 +65,6 @@ DEMO_SCREEN_ADDR        = 0x02AE2
 
 # Inventories
 CHECKED_LOCS_INV_ADDR   = 0x371B8
-EREADER_BITFLAGS_ADDR   = 0x02438
-EREADER_BYTE_MAP_ADDR   = 0x02474
 HP_ADDR                 = 0x38044
 
 # AP Related Counters
@@ -112,8 +108,6 @@ class MMZero3Client(BizHawkClient):
         self.collected_disks = 0
 
         # Inventories
-        self.eReader_bitflag_inventory = [0] * 12
-        self.eReader_byte_map_inventory = [0] * 10
         self.starting_weapon_codes = []  # TEMP: AP item codes for the seed's starting weapons
 
 
@@ -340,36 +334,13 @@ class MMZero3Client(BizHawkClient):
                 await ctx.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
                 ctx.finished_game = True
 
-            # ---- eReader and disk tracking -------------------------------------------
-            # TODO These are still applied by the client rather than by ApGrantItem.
+            # ---- disk count for completion goal ---------------------------------------------
             for i in range(self.received_index, len(ctx.items_received)):
                 needs_sync = True
                 item = ctx.items_received[i]
 
-                # Disk items
                 if 1 <= item.item <= 180:
                     self.collected_disks += 1
-
-                # If the Disk is also an eReader bitflag item
-                if item.item >= 111 and item.item <= 140:
-                    if item.item not in BIT_FLAGS:
-                        continue
-                    word_index, bit = BIT_FLAGS[item.item]
-
-                    byte_index = word_index * 2
-                    mask = 1 << (bit - 1)
-
-                    if bit <= 8:
-                        self.eReader_bitflag_inventory[byte_index]     |= mask
-                    else:
-                        self.eReader_bitflag_inventory[byte_index + 1] |= (mask >> 8)
-
-                # If the disk is also is an eReader byte map item
-                if item.item in BYTE_MAP:
-                    addr, value = BYTE_MAP[item.item]
-                    self.eReader_byte_map_inventory[addr - EREADER_BYTE_MAP_ADDR] = value
-
-
 
             self.received_index = len(ctx.items_received)
 
@@ -412,13 +383,10 @@ class MMZero3Client(BizHawkClient):
 
         Done whenever the player collects or receives an item, or transitions between stages."""
 
-
         items_inventory = await self.get_items(ctx)
 
         await bizhawk.write(ctx.bizhawk_ctx, [
-            (CHECKED_LOCS_INV_ADDR, list(items_inventory),                 "Combined WRAM"),  # Checked locations inventory
-            (EREADER_BITFLAGS_ADDR, list(self.eReader_bitflag_inventory),  "Combined WRAM"),  # eReader bitflags
-            (EREADER_BYTE_MAP_ADDR, self.eReader_byte_map_inventory,       "Combined WRAM"),  # eReader byte map
+            (CHECKED_LOCS_INV_ADDR, list(items_inventory), "Combined WRAM"),
         ])
 
     async def push_items(self, ctx: "BizHawkClientContext",
