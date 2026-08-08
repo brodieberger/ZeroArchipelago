@@ -3,7 +3,7 @@
   "ready": 861556801,
   "ready_hex": "0x335A5041",
   "ready_ascii": "APZ3",
-  "version": 10,
+  "version": 11,
   "ap_state": {
     "address": 33812096,
     "size": 80,
@@ -68,7 +68,7 @@
         "size": 2,
         "count": 1
       },
-      "inGameplay": {
+      "killRequest": {
         "offset": 78,
         "size": 1,
         "count": 1

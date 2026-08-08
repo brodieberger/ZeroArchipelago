@@ -18,6 +18,9 @@ EWRAM_BASE = 0x02000000
 # itemInbox holds u16s because item codes reach 301
 INBOX_ELEMENT_SIZE = 2
 
+# gAp.killRequest, just so its the same as in ap.h
+AP_KILL_REQUESTED = 1
+
 
 class ApBlock:
     """Addresses of gAp's fields, read from ap_symbols.json which gets generated on every ROM compile.
@@ -61,12 +64,6 @@ ROM_NAME_ADDR           = 0x0A0
 # Inventories
 CHECKED_LOCS_INV_ADDR   = 0x371B8   # save.disk -- 180 disks, 4 disks per byte
 DISK_BYTES              = 45
-HP_ADDR                 = 0x38044   # written to apply a received death; never read
-
-# How long a death we caused ourselves stays un-relayed. Only has to outlast the couple of polls
-# between poking HP and the ROM counting the death; expires so a poke that somehow fails to kill
-# cannot swallow a later real death.
-DEATHLINK_WAIT_WINDOW   = 3.0
 
 # The four Sunken Library data files, left out of the save.disk restore as they are level logic.
 # Numbers are diskno == AP location: DISK_FILE_D 10, J 16, K 17, L 18
@@ -102,7 +99,6 @@ class MMZero3Client(BizHawkClient):
         self.death_link = False
         self.pending_death_link = False
         self.death_count_seen = None   # last gAp.deathCount; None until the mailbox is live
-        self.suppress_death_until = 0.0  # deaths we caused ourselves, not to be relayed back
 
         # Item tracking
         self.received_index = 0
@@ -148,14 +144,13 @@ class MMZero3Client(BizHawkClient):
             final_cleared = False
             disks_owned = 0
             death_count = None
-            in_gameplay = False
 
             if (self.ap is not None and not self.ap_disabled
                     and ctx.slot is not None and ctx.server_locations):
                 (ready_bytes, version_bytes,
                  inbox_write_bytes, inbox_read_bytes, items_applied_bytes,
                  final_cleared_bytes, disks_owned_bytes,
-                 death_count_bytes, in_gameplay_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
+                 death_count_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
                     # Ready and version test
                     (self.ap.addr("ready"),        4, "Combined WRAM"),
                     (self.ap.addr("version"),      2, "Combined WRAM"),
@@ -171,9 +166,8 @@ class MMZero3Client(BizHawkClient):
                     (self.ap.addr("finalCleared"),    1, "Combined WRAM"),
                     (self.ap.addr("disksOwned"),      2, "Combined WRAM"),
 
-                    # DeathLink facts, game to AP client.
+                    # DeathLink, game to AP client.
                     (self.ap.addr("deathCount"),      2, "Combined WRAM"),
-                    (self.ap.addr("inGameplay"),      1, "Combined WRAM"),
                 ])
 
                 # ApInit runs on the first Process_Game(), so check it to see if the game is still booting.
@@ -193,7 +187,6 @@ class MMZero3Client(BizHawkClient):
                         final_cleared = final_cleared_bytes[0] != 0
                         disks_owned = int.from_bytes(disks_owned_bytes, "little")
                         death_count = int.from_bytes(death_count_bytes, "little")
-                        in_gameplay = in_gameplay_bytes[0] != 0
 
                         if not self.ap_handshake_logged:
                             logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
@@ -271,21 +264,18 @@ class MMZero3Client(BizHawkClient):
                     self.death_count_seen = death_count
                 elif death_count > self.death_count_seen:
                     self.death_count_seen = death_count
-                    if time.time() < self.suppress_death_until:
-                        # The death we just caused by honouring someone else's. Relaying it
-                        # would bounce back and forth around the group forever.
-                        self.suppress_death_until = 0.0
-                    elif "DeathLink" in ctx.tags:
+                    if "DeathLink" in ctx.tags:
                         await self.send_deathlink(ctx)
                 elif death_count < self.death_count_seen:
                     # gAp lives in EWRAM, so loading a savestate rewinds the counter. Nobody
                     # died; re-baseline so the next real death still registers as an increase.
                     self.death_count_seen = death_count
 
-            if self.pending_death_link and in_gameplay:
+            if self.pending_death_link and mailbox_live:
                 self.pending_death_link = False
-                self.suppress_death_until = time.time() + DEATHLINK_WAIT_WINDOW
-                await bizhawk.write(ctx.bizhawk_ctx, [(HP_ADDR, [0, 0], "Combined WRAM")])
+                await bizhawk.write(ctx.bizhawk_ctx, [
+                    (self.ap.addr("killRequest"), [AP_KILL_REQUESTED], "Combined WRAM"),
+                ])
 
             # ---- goal ----------------------------------------------------------------
             if mailbox_live and final_cleared and not ctx.finished_game:
