@@ -1,12 +1,12 @@
-from dataclasses import dataclass
+import json
 import os
 import pkgutil
-import Utils
-from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes, APPatchExtension
 from typing import TYPE_CHECKING
-from settings import get_settings
+
 import settings
-import json
+import Utils
+from settings import get_settings
+from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes
 
 if TYPE_CHECKING:
     from . import MMZero3World
@@ -14,6 +14,21 @@ if TYPE_CHECKING:
 
 # Bit positions in ZeroStatus.unlockedWeapon.
 WEAPON_BITS = {"Buster": 0, "Z-Saber": 1, "Recoil Rod": 2, "Shield Boomerang": 3}
+
+
+def get_base_rom_bytes() -> bytes:
+    file_name = get_settings().MMZero3_settings["rom_file"]
+    if not os.path.exists(file_name):
+        file_name = Utils.user_path(file_name)
+    with open(file_name, "rb") as infile:
+        return infile.read()
+
+
+def load_ap_symbols() -> dict:
+    raw = pkgutil.get_data(__name__, "ap_symbols.json")
+    if raw is None:
+        raise FileNotFoundError("ap_symbols.json not found in the apworld")
+    return json.loads(raw.decode("utf-8"))
 
 
 class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
@@ -29,19 +44,7 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
 
     @classmethod
     def get_source_data(cls) -> bytes:
-        file_name = get_settings().MMZero3_settings["rom_file"]
-        if not os.path.exists(file_name):
-          file_name = Utils.user_path(file_name)
-        with open(file_name, "rb") as infile:
-            base_rom_bytes = bytes(infile.read())
-
-        return base_rom_bytes
-
-def load_ap_symbols() -> dict:
-    raw = pkgutil.get_data(__name__, "ap_symbols.json")
-    if raw is None:
-        raise FileNotFoundError("ap_symbols.json not found in the apworld")
-    return json.loads(raw.decode("utf-8"))
+        return get_base_rom_bytes()
 
 
 def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
@@ -74,12 +77,11 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
 
 
 class MMZero3Settings(settings.Group):
-    class MMZero3RomFile(settings.UserFilePath):
-        """File name of your Mega Man Zero 3 (USA) """
+    class RomFile(settings.UserFilePath):
+        """File name of your Mega Man Zero 3 (USA) ROM"""
         required = True
         description = "Mega Man Zero 3 (USA) ROM File"
         copy_to = "Mega Man Zero 3 (USA).gba"
         md5s = [MMZero3ProcedurePatch.hash]
 
-
-    rom_file: MMZero3RomFile = MMZero3RomFile(MMZero3RomFile.copy_to)
+    rom_file: RomFile = RomFile(RomFile.copy_to)
