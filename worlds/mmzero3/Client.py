@@ -8,6 +8,8 @@ from NetUtils import ClientStatus
 import worlds._bizhawk as bizhawk
 from worlds._bizhawk.client import BizHawkClient
 
+from .Locations import location_data_table
+
 if TYPE_CHECKING:
     from worlds._bizhawk.context import BizHawkClientContext
 
@@ -33,6 +35,7 @@ INBOX_ELEMENT_SIZE = 2
 AP_KILL_REQUESTED = 1
 
 DEFAULT_REQUIRED_DISKS = 80
+FINAL_STAGE_LOCATION = location_data_table["Complete Abandoned Research Laboratory"].address
 
 
 class ApBlock:
@@ -141,14 +144,13 @@ class MMZero3Client(BizHawkClient):
         if self.ap is None or self.ap_disabled or ctx.slot is None or not ctx.server_locations:
             return None
 
-        ready, version, inbox_write, inbox_read, items_applied, final_cleared, disks_owned, \
-            death_count = await bizhawk.read(ctx.bizhawk_ctx, [
+        ready, version, inbox_write, inbox_read, items_applied, disks_owned, death_count = \
+            await bizhawk.read(ctx.bizhawk_ctx, [
                 (self.ap.addr("ready"), 4, WRAM),
                 (self.ap.addr("version"), 2, WRAM),
                 (self.ap.addr("inboxWriteIndex"), 1, WRAM),
                 (self.ap.addr("inboxReadIndex"), 1, WRAM),
                 (self.ap.addr("itemsApplied"), 2, WRAM),
-                (self.ap.addr("finalCleared"), 1, WRAM),
                 (self.ap.addr("disksOwned"), 2, WRAM),
                 (self.ap.addr("deathCount"), 2, WRAM),
             ])
@@ -175,7 +177,6 @@ class MMZero3Client(BizHawkClient):
             "inbox_write": inbox_write[0],
             "inbox_read": inbox_read[0],
             "items_applied": int.from_bytes(items_applied, "little"),
-            "final_cleared": final_cleared[0] != 0,
             "disks_owned": int.from_bytes(disks_owned, "little"),
             "death_count": int.from_bytes(death_count, "little"),
         }
@@ -262,9 +263,12 @@ class MMZero3Client(BizHawkClient):
 
     async def handle_goal(self, ctx: "BizHawkClientContext", mailbox: Dict[str, int]) -> None:
         """
-        Clear the final stage holding the required number of disks, set by a player option. 
+        Clear the final stage holding the required number of disks, set by a player option.
         """
-        if not mailbox["final_cleared"] or ctx.finished_game:
+        if ctx.finished_game:
+            return
+        if (FINAL_STAGE_LOCATION not in ctx.checked_locations
+                and FINAL_STAGE_LOCATION not in self.locations_reported):
             return
 
         disks_owned = mailbox["disks_owned"]
