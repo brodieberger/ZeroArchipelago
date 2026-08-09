@@ -88,7 +88,7 @@ class MMZero3Client(BizHawkClient):
         self.ap_handshake_logged = False
         self.locations_reported = set()  # location IDs already forwarded to the server
         self.items_pushed = 0           # how much of items_received is in the game's RAM
-        self.items_applied_seen = 0     # last gAp.itemsApplied; a drop means a rewind
+        self.items_applied_seen = None  # last gAp.itemsApplied;
 
         # Options, overwritten from slot data
         self.options_set = False
@@ -146,7 +146,7 @@ class MMZero3Client(BizHawkClient):
         if self.ap is None or self.ap_disabled or ctx.slot is None or not ctx.server_locations:
             return None
 
-        ready, version, inbox_write, inbox_read, items_applied, disks_owned, death_count = \
+        ready, version, inbox_write, inbox_read, items_applied, disks_owned, death_count, can_accept_items = \
             await bizhawk.read(ctx.bizhawk_ctx, [
                 (self.ap.addr("ready"), 4, WRAM),
                 (self.ap.addr("version"), 2, WRAM),
@@ -155,6 +155,7 @@ class MMZero3Client(BizHawkClient):
                 (self.ap.addr("itemsApplied"), 2, WRAM),
                 (self.ap.addr("disksOwned"), 2, WRAM),
                 (self.ap.addr("deathCount"), 2, WRAM),
+                (self.ap.addr("canAcceptItems"), 1, WRAM),
             ])
 
         if int.from_bytes(ready, "little") != self.ap.ready_value:
@@ -181,6 +182,7 @@ class MMZero3Client(BizHawkClient):
             "items_applied": int.from_bytes(items_applied, "little"),
             "disks_owned": int.from_bytes(disks_owned, "little"),
             "death_count": int.from_bytes(death_count, "little"),
+            "can_accept_items": can_accept_items[0] != 0,
         }
 
     async def handle_checked_locations(self, ctx: "BizHawkClientContext") -> None:
@@ -209,13 +211,19 @@ class MMZero3Client(BizHawkClient):
     async def handle_received_items(self, ctx: "BizHawkClientContext",
                                     mailbox: Dict[str, int]) -> None:
         """Hand received items to the game through the itemInbox ring."""
+        if not mailbox["can_accept_items"]:
+            return
+
         slot_count = self.ap.count("itemInbox")
         wrap_mask = slot_count - 1
         item_codes = [int(item.item) for item in ctx.items_received]
 
-        # itemsApplied going backwards means a savestate or other reset
         items_applied = mailbox["items_applied"]
-        if items_applied < self.items_applied_seen:
+        if self.items_applied_seen is None:
+            self.items_pushed = min(items_applied, len(item_codes))
+            logger.info("MMZero3: game reports %d item(s) already applied; resuming from %d.",
+                        items_applied, self.items_pushed)
+        elif items_applied < self.items_applied_seen:
             logger.info("MMZero3: game rewound (applied %d -> %d); resuming from %d.",
                         self.items_applied_seen, items_applied, items_applied)
             self.items_pushed = min(items_applied, len(item_codes))
@@ -268,6 +276,8 @@ class MMZero3Client(BizHawkClient):
         Clear the final stage holding the required number of disks, set by a player option.
         """
         if ctx.finished_game:
+            return
+        if not mailbox["can_accept_items"]:
             return
         if (FINAL_STAGE_LOCATION not in ctx.checked_locations
                 and FINAL_STAGE_LOCATION not in self.locations_reported):
