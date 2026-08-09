@@ -21,9 +21,11 @@ EWRAM_BASE = 0x02000000
 ROM_NAME_ADDR = 0x0A0
 EXPECTED_ROM_NAME = "MEGAMANZERO3"
 
-# save.disk: 180 disks packed 4 per byte, low nibble found / high nibble analysed.
-CHECKED_LOCS_INV_ADDR = 0x371B8
+SAVE_ADDR = 0x370FC
+CHECKED_LOCS_INV_ADDR = SAVE_ADDR + 0x0BC   # save.disk, 4 disks per byte, low nibble found
 DISK_BYTES = 45
+TAKEN_FLAGS_ADDR = SAVE_ADDR + 0x248        # save.unused_240[AP_TAKEN_BYTE]
+AP_TAKEN_SUBTANK = {221: 1 << 0, 222: 1 << 1}
 
 # The four Sunken Library data files, left out as they are used in level logic.
 SKIP_DISK_RESTORE = frozenset({10, 16, 17, 18})
@@ -125,7 +127,7 @@ class MMZero3Client(BizHawkClient):
                 await self.handle_death_link(ctx, mailbox)
                 await self.handle_goal(ctx, mailbox)
 
-            await self.handle_collected_disks(ctx)
+            await self.handle_collected_pickups(ctx)
         except bizhawk.RequestFailedError:
             pass
 
@@ -296,24 +298,34 @@ class MMZero3Client(BizHawkClient):
         ])
         ctx.finished_game = True
 
-    async def handle_collected_disks(self, ctx: "BizHawkClientContext") -> None:
-        """Keep save.disk synced with the locations the server says are checked.
+    async def handle_collected_pickups(self, ctx: "BizHawkClientContext") -> None:
+        """Keep the game's RAM synced with the locations the server says are checked.
 
-        That array is what stops a collected disk spawning again.
+        Stops pickups from respawning
         """
-        collected_in_game = (await bizhawk.read(ctx.bizhawk_ctx, [
+        collected_disks, taken = await bizhawk.read(ctx.bizhawk_ctx, [
             (CHECKED_LOCS_INV_ADDR, DISK_BYTES, WRAM),
-        ]))[0]
+            (TAKEN_FLAGS_ADDR, 1, WRAM),
+        ])
 
-        repaired = bytearray(collected_in_game)
+        repaired_disks = bytearray(collected_disks)
+        repaired_taken = taken[0]
         for location_id in ctx.checked_locations:
-            if location_id in SKIP_DISK_RESTORE or not 1 <= location_id <= 180:
+            if location_id in SKIP_DISK_RESTORE:
                 continue
-            disk_index = location_id - 1
-            repaired[disk_index // 4] |= 1 << (disk_index % 4)
+            if 1 <= location_id <= 180:
+                disk_index = location_id - 1
+                repaired_disks[disk_index // 4] |= 1 << (disk_index % 4)
+            elif location_id in AP_TAKEN_SUBTANK:
+                repaired_taken |= AP_TAKEN_SUBTANK[location_id]
 
-        if repaired != collected_in_game:
-            await bizhawk.write(ctx.bizhawk_ctx, [(CHECKED_LOCS_INV_ADDR, list(repaired), WRAM)])
+        writes = []
+        if repaired_disks != collected_disks:
+            writes.append((CHECKED_LOCS_INV_ADDR, list(repaired_disks), WRAM))
+        if repaired_taken != taken[0]:
+            writes.append((TAKEN_FLAGS_ADDR, [repaired_taken], WRAM))
+        if writes:
+            await bizhawk.write(ctx.bizhawk_ctx, writes)
 
     async def send_deathlink(self, ctx: "BizHawkClientContext") -> None:
         ctx.last_death_link = time.time()
