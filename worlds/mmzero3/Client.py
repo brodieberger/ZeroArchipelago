@@ -2,7 +2,7 @@ import json
 import logging
 import pkgutil
 import time
-from typing import TYPE_CHECKING, Dict, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from NetUtils import ClientStatus
 import worlds._bizhawk as bizhawk
@@ -12,23 +12,35 @@ if TYPE_CHECKING:
     from worlds._bizhawk.context import BizHawkClientContext
 
 logger = logging.getLogger("Client")
+
+WRAM = "Combined WRAM"
 EWRAM_BASE = 0x02000000
 
+ROM_NAME_ADDR = 0x0A0
+EXPECTED_ROM_NAME = "MEGAMANZERO3"
 
-# itemInbox holds u16s because item codes reach 301
+# save.disk: 180 disks packed 4 per byte, low nibble found / high nibble analysed.
+CHECKED_LOCS_INV_ADDR = 0x371B8
+DISK_BYTES = 45
+
+# The four Sunken Library data files, left out as they are used in level logic.
+SKIP_DISK_RESTORE = frozenset({10, 16, 17, 18})
+
+# itemInbox uses u16s
 INBOX_ELEMENT_SIZE = 2
 
-# gAp.killRequest, just so its the same as in ap.h
+# gAp.killRequest, matching ap.h.
 AP_KILL_REQUESTED = 1
+
+DEFAULT_REQUIRED_DISKS = 80
 
 
 class ApBlock:
-    """Addresses of gAp's fields, read from ap_symbols.json which gets generated on every ROM compile.
+    """gAp and its fields. Read from ap_symbols.json which is created when the ROM is compiled.
 
-    checkedLocations: game to AP client. One bit per location ID, set by the ROM when the player checks it.
-
-    itemInbox (16 slots):  AP client to game. For when Archipelago grants an item.
-    Client fills a slot and advances inboxWriteIndex, the ROM grants it and advances inboxReadIndex. Equal indices mean no item on either side.
+    checkedLocations is game -> client: one bit per location ID, set by the ROM.
+    itemInbox is client -> game: the client fills a slot and advances inboxWriteIndex, the ROM grants it and advances inboxReadIndex. 
+    Equal indices mean the inbox is empty.
     """
 
     def __init__(self, symbols: dict):
@@ -53,21 +65,9 @@ def load_ap_symbols() -> Optional[ApBlock]:
             raise FileNotFoundError("ap_symbols.json not found in the apworld")
         return ApBlock(json.loads(raw.decode("utf-8")))
     except Exception as exc:
-        logger.error(
-            "MMZero3: could not load ap_symbols.json (%s).", exc)
+        logger.error("MMZero3: could not load ap_symbols.json (%s).", exc)
         return None
 
-
-# ROM
-ROM_NAME_ADDR           = 0x0A0
-
-# Inventories
-CHECKED_LOCS_INV_ADDR   = 0x371B8   # save.disk -- 180 disks, 4 disks per byte
-DISK_BYTES              = 45
-
-# The four Sunken Library data files, left out of the save.disk restore as they are level logic.
-# Numbers are diskno == AP location: DISK_FILE_D 10, J 16, K 17, L 18
-SKIP_DISK_RESTORE       = frozenset({10, 16, 17, 18})
 
 class MMZero3Client(BizHawkClient):
     game = "Mega Man Zero 3"
@@ -77,49 +77,239 @@ class MMZero3Client(BizHawkClient):
     def __init__(self):
         super().__init__()
 
-        # State tracking
-        self.player_warned = False
-
         # gAp stuff. `ap` is None only if ap_symbols.json failed to load.
         self.ap = load_ap_symbols()
-        self.ap_disabled = False       # set true in case of a version mismatch between client and the ROM
+        self.ap_disabled = False        # latched on a ROM/client version mismatch
         self.ap_handshake_logged = False
         self.locations_reported = set()  # location IDs already forwarded to the server
-        self.items_pushed = 0          # how much of items_received is in the game's RAM
-        self.items_applied_seen = 0    # last gAp.itemsApplied; a drop means a reset
+        self.items_pushed = 0           # how much of items_received is in the game's RAM
+        self.items_applied_seen = 0     # last gAp.itemsApplied; a drop means a rewind
 
-        # Options (overwritten from slot data)
+        # Options, overwritten from slot data
         self.options_set = False
-        self.required_disks = 80
+        self.required_disks = DEFAULT_REQUIRED_DISKS
 
         # DeathLink
         self.death_link = False
         self.pending_death_link = False
-        self.death_count_seen = None   # last gAp.deathCount; None until the mailbox is live
+        self.death_count_seen = None    # last gAp.deathCount; None until the mailbox is live
 
-        # Item tracking
-        self.received_index = 0
-
+        self.player_warned = False      # told the player the final stage needs more disks
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
         try:
-            # Check ROM name/patch version
-            rom_name = ((await bizhawk.read(ctx.bizhawk_ctx, [(ROM_NAME_ADDR, 12, "ROM")]))[0]).decode("ascii")
-            if rom_name != "MEGAMANZERO3":
-                return False  # Not a Mega Man Zero 3 ROM
+            rom_name = (await bizhawk.read(ctx.bizhawk_ctx, [(ROM_NAME_ADDR, 12, "ROM")]))[0]
         except bizhawk.RequestFailedError:
-            return False  # Not able to get a response, say no for now
+            return False
+        if rom_name.decode("ascii", "replace") != EXPECTED_ROM_NAME:
+            return False
 
         ctx.game = self.game
         ctx.items_handling = 0b111
         ctx.want_slot_data = True
-
         return True
 
-    def on_package(self, ctx: "BizHawkClientContext", cmd: str, args: Dict[str, Any]) -> None:
-        if cmd == "Bounced" and "tags" in args:
-            if "DeathLink" in args["tags"] and args["data"]["source"] != ctx.slot_info[ctx.slot].name:
-                self.on_deathlink(ctx)
+    async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
+        try:
+            self.read_slot_data(ctx)
+            if self.death_link:
+                await ctx.update_death_link(True)
+
+            mailbox = await self.read_mailbox(ctx)
+            if mailbox is not None:
+                await self.handle_checked_locations(ctx)
+                await self.handle_received_items(ctx, mailbox)
+                await self.handle_death_link(ctx, mailbox)
+                await self.handle_goal(ctx, mailbox)
+
+            await self.handle_collected_disks(ctx)
+        except bizhawk.RequestFailedError:
+            pass
+
+    def read_slot_data(self, ctx: "BizHawkClientContext") -> None:
+        if not ctx.slot_data or self.options_set:
+            return
+        self.required_disks = ctx.slot_data.get("required_secret_disks", DEFAULT_REQUIRED_DISKS)
+        self.death_link = bool(ctx.slot_data.get("death_link", 0))
+        self.options_set = True
+
+    async def read_mailbox(self, ctx: "BizHawkClientContext") -> Optional[Dict[str, int]]:
+        """One read of gAp. None means the ROM isn't ready.
+
+        ApInit runs on the first Process_Game(), so `ready` not matching means the game is still booting.
+        """
+        if self.ap is None or self.ap_disabled or ctx.slot is None or not ctx.server_locations:
+            return None
+
+        ready, version, inbox_write, inbox_read, items_applied, final_cleared, disks_owned, \
+            death_count = await bizhawk.read(ctx.bizhawk_ctx, [
+                (self.ap.addr("ready"), 4, WRAM),
+                (self.ap.addr("version"), 2, WRAM),
+                (self.ap.addr("inboxWriteIndex"), 1, WRAM),
+                (self.ap.addr("inboxReadIndex"), 1, WRAM),
+                (self.ap.addr("itemsApplied"), 2, WRAM),
+                (self.ap.addr("finalCleared"), 1, WRAM),
+                (self.ap.addr("disksOwned"), 2, WRAM),
+                (self.ap.addr("deathCount"), 2, WRAM),
+            ])
+
+        if int.from_bytes(ready, "little") != self.ap.ready_value:
+            return None
+
+        rom_version = int.from_bytes(version, "little")
+        if rom_version != self.ap.version:
+            self.ap_disabled = True
+            message = (f"ROM/client version mismatch: the ROM is AP interface version "
+                       f"{rom_version}, this apworld is version {self.ap.version}. "
+                       f"Please generate a new game/ROM!")
+            logger.error("MMZero3: %s", message)
+            await ctx.send_msgs([{"cmd": "Say", "text": f"[MMZ3] {message}"}])
+            return None
+
+        if not self.ap_handshake_logged:
+            logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
+                        self.ap.base + EWRAM_BASE, rom_version)
+            self.ap_handshake_logged = True
+
+        return {
+            "inbox_write": inbox_write[0],
+            "inbox_read": inbox_read[0],
+            "items_applied": int.from_bytes(items_applied, "little"),
+            "final_cleared": final_cleared[0] != 0,
+            "disks_owned": int.from_bytes(disks_owned, "little"),
+            "death_count": int.from_bytes(death_count, "little"),
+        }
+
+    async def handle_checked_locations(self, ctx: "BizHawkClientContext") -> None:
+        """Forward every newly set bit of gAp.checkedLocations to the server."""
+        checked_bits = (await bizhawk.read(ctx.bizhawk_ctx, [
+            (self.ap.addr("checkedLocations"), self.ap.count("checkedLocations"), WRAM),
+        ]))[0]
+
+        newly_checked = []
+        for location_id in range(len(checked_bits) * 8):
+            if not checked_bits[location_id >> 3] & (1 << (location_id & 7)):
+                continue
+            if location_id in self.locations_reported:
+                continue
+            self.locations_reported.add(location_id)
+            if location_id in ctx.server_locations:
+                newly_checked.append(location_id)
+            else:
+                logger.warning("MMZero3: ROM reported unknown location id %d; ignoring.",
+                               location_id)
+
+        if newly_checked:
+            await ctx.send_msgs([{"cmd": "LocationChecks", "locations": newly_checked}])
+            logger.debug("MMZero3: reported %d location(s): %s", len(newly_checked), newly_checked)
+
+    async def handle_received_items(self, ctx: "BizHawkClientContext",
+                                    mailbox: Dict[str, int]) -> None:
+        """Hand received items to the game through the itemInbox ring."""
+        slot_count = self.ap.count("itemInbox")
+        wrap_mask = slot_count - 1
+        item_codes = [int(item.item) for item in ctx.items_received]
+
+        # itemsApplied going backwards means a savestate or other reset
+        items_applied = mailbox["items_applied"]
+        if items_applied < self.items_applied_seen:
+            logger.info("MMZero3: game rewound (applied %d -> %d); resuming from %d.",
+                        self.items_applied_seen, items_applied, items_applied)
+            self.items_pushed = min(items_applied, len(item_codes))
+        self.items_applied_seen = items_applied
+
+        codes_to_push = item_codes[self.items_pushed:]
+        if not codes_to_push:
+            return
+
+        # One slot is always left free so one can always be read as empty.
+        items_waiting = (mailbox["inbox_write"] - mailbox["inbox_read"]) & wrap_mask
+        slots_free = (slot_count - 1) - items_waiting
+        if slots_free <= 0:
+            return  # try again next game_watcher run
+
+        pushing = min(slots_free, len(codes_to_push))
+        next_slot = mailbox["inbox_write"]
+        writes = []
+        for code in codes_to_push[:pushing]:
+            writes.append((self.ap.addr("itemInbox") + next_slot * INBOX_ELEMENT_SIZE,
+                           list(code.to_bytes(INBOX_ELEMENT_SIZE, "little")), WRAM))
+            next_slot = (next_slot + 1) & wrap_mask
+        writes.append((self.ap.addr("inboxWriteIndex"), [next_slot], WRAM))
+        await bizhawk.write(ctx.bizhawk_ctx, writes)
+
+        self.items_pushed += pushing
+        logger.debug("MMZero3: pushed %d item(s) to the game; %d still waiting.",
+                     pushing, len(codes_to_push) - pushing)
+
+    async def handle_death_link(self, ctx: "BizHawkClientContext",
+                                mailbox: Dict[str, int]) -> None:
+        death_count = mailbox["death_count"]
+        if self.death_count_seen is None:
+            self.death_count_seen = death_count
+        elif death_count > self.death_count_seen:
+            self.death_count_seen = death_count
+            if "DeathLink" in ctx.tags:
+                await self.send_deathlink(ctx)
+        elif death_count < self.death_count_seen:
+            self.death_count_seen = death_count
+
+        if self.pending_death_link:
+            self.pending_death_link = False
+            await bizhawk.write(ctx.bizhawk_ctx, [
+                (self.ap.addr("killRequest"), [AP_KILL_REQUESTED], WRAM),
+            ])
+
+    async def handle_goal(self, ctx: "BizHawkClientContext", mailbox: Dict[str, int]) -> None:
+        """
+        Clear the final stage holding the required number of disks, set by a player option. 
+        """
+        if not mailbox["final_cleared"] or ctx.finished_game:
+            return
+
+        disks_owned = mailbox["disks_owned"]
+        if disks_owned < self.required_disks:
+            if not self.player_warned:
+                self.player_warned = True
+                await ctx.send_msgs([
+                    {"cmd": "Say", "text": f"Final stage cleared! You still need "
+                                           f"{self.required_disks - disks_owned} more disks."},
+                    {"cmd": "Say", "text": "Collect more disks and the goal will send itself."},
+                    {"cmd": "Say", "text": "Feel free to start new game plus, or load an earlier save!"},
+                ])
+            return
+
+        if self.required_disks == 0:
+            text = "Final stage cleared! Game completed!"
+        elif self.player_warned:
+            text = f"{disks_owned} Disks collected! Game completed!"
+        else:
+            text = (f"Final stage cleared with {disks_owned} Disks, "
+                    f"{disks_owned - self.required_disks} more than needed!")
+        await ctx.send_msgs([
+            {"cmd": "Say", "text": text},
+            {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
+        ])
+        ctx.finished_game = True
+
+    async def handle_collected_disks(self, ctx: "BizHawkClientContext") -> None:
+        """Keep save.disk synced with the locations the server says are checked.
+
+        That array is what stops a collected disk spawning again.
+        """
+        collected_in_game = (await bizhawk.read(ctx.bizhawk_ctx, [
+            (CHECKED_LOCS_INV_ADDR, DISK_BYTES, WRAM),
+        ]))[0]
+
+        repaired = bytearray(collected_in_game)
+        for location_id in ctx.checked_locations:
+            if location_id in SKIP_DISK_RESTORE or not 1 <= location_id <= 180:
+                continue
+            disk_index = location_id - 1
+            repaired[disk_index // 4] |= 1 << (disk_index % 4)
+
+        if repaired != collected_in_game:
+            await bizhawk.write(ctx.bizhawk_ctx, [(CHECKED_LOCS_INV_ADDR, list(repaired), WRAM)])
 
     async def send_deathlink(self, ctx: "BizHawkClientContext") -> None:
         ctx.last_death_link = time.time()
@@ -129,217 +319,7 @@ class MMZero3Client(BizHawkClient):
         ctx.last_death_link = time.time()
         self.pending_death_link = True
 
-    async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
-        try:
-            # ---- gAp startup test -------------------------------------------------------
-            mailbox_live = False
-
-            inbox_write = inbox_read = items_applied = 0
-            final_cleared = False
-            disks_owned = 0
-            death_count = None
-
-            if (self.ap is not None and not self.ap_disabled
-                    and ctx.slot is not None and ctx.server_locations):
-                (ready_bytes, version_bytes,
-                 inbox_write_bytes, inbox_read_bytes, items_applied_bytes,
-                 final_cleared_bytes, disks_owned_bytes,
-                 death_count_bytes) = await bizhawk.read(ctx.bizhawk_ctx, [
-                    # Ready and version test
-                    (self.ap.addr("ready"),        4, "Combined WRAM"),
-                    (self.ap.addr("version"),      2, "Combined WRAM"),
-
-                    # Item inbox, AP client to game.
-                    # inboxWriteIndex is advanced as we hand items over
-                    # The ROM advances inboxReadIndex once ApGrantItem() has applied them.
-                    (self.ap.addr("inboxWriteIndex"), 1, "Combined WRAM"),
-                    (self.ap.addr("inboxReadIndex"),  1, "Combined WRAM"),
-                    (self.ap.addr("itemsApplied"),    2, "Combined WRAM"),
-
-                    # Goal information, game to AP client.
-                    (self.ap.addr("finalCleared"),    1, "Combined WRAM"),
-                    (self.ap.addr("disksOwned"),      2, "Combined WRAM"),
-
-                    # DeathLink, game to AP client.
-                    (self.ap.addr("deathCount"),      2, "Combined WRAM"),
-                ])
-
-                # ApInit runs on the first Process_Game(), so check it to see if the game is still booting.
-                if int.from_bytes(ready_bytes, "little") == self.ap.ready_value:
-                    # Check if the game's version matches. If it matches, 
-                    version = int.from_bytes(version_bytes, "little")
-                    if version != self.ap.version:
-                        self.ap_disabled = True
-                        message = (f"ROM/client version mismatch: the ROM is AP interface version {version}, "
-                                   f"this apworld is version {self.ap.version}. Please Generate a new game/ROM!.")
-                        logger.error("MMZero3: %s", message)
-                        await ctx.send_msgs([{"cmd": "Say", "text": f"[MMZ3] {message}"}])
-                    else:
-                        mailbox_live = True
-                        inbox_write, inbox_read = inbox_write_bytes[0], inbox_read_bytes[0]
-                        items_applied = int.from_bytes(items_applied_bytes, "little")
-                        final_cleared = final_cleared_bytes[0] != 0
-                        disks_owned = int.from_bytes(disks_owned_bytes, "little")
-                        death_count = int.from_bytes(death_count_bytes, "little")
-
-                        if not self.ap_handshake_logged:
-                            logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
-                                        self.ap.base + EWRAM_BASE, version)
-                            self.ap_handshake_logged = True
-
-
-            # ---- OTHER GAME STUFF ----------------------------------------------------------
-            (collected_in_game,) = await bizhawk.read(ctx.bizhawk_ctx, [
-                (CHECKED_LOCS_INV_ADDR, DISK_BYTES, "Combined WRAM"),   # save.disk
-            ])
-
-            # ---- options -------------------------------------------------------------
-            if ctx.slot_data and not self.options_set:
-                self.required_disks = ctx.slot_data.get("required_secret_disks", 80)
-                self.death_link = bool(ctx.slot_data.get("death_link", 0))
-                self.options_set = True
-
-            # ---- read checked locations (game to AP client) -----------------------------
-            if mailbox_live:
-                checked_bits = (await bizhawk.read(
-                    ctx.bizhawk_ctx,
-                    [(self.ap.addr("checkedLocations"),
-                      self.ap.count("checkedLocations"), "Combined WRAM")]))[0]
-
-                newly_checked = []
-                for location_id in range(len(checked_bits) * 8):
-                    if not checked_bits[location_id >> 3] & (1 << (location_id & 7)):
-                        continue
-                    if location_id in self.locations_reported:
-                        continue
-                    self.locations_reported.add(location_id)
-                    if location_id in ctx.server_locations:
-                        newly_checked.append(location_id)
-                    else:
-                        logger.warning("MMZero3: ROM reported unknown location id %d; ignoring.",
-                                       location_id)
-
-                if newly_checked:
-                    await ctx.send_msgs([{"cmd": "LocationChecks", "locations": newly_checked}])
-                    logger.debug("MMZero3: reported %d location(s): %s",
-                                 len(newly_checked), newly_checked)
-
-            # ---- push items (AP client to game) -----------------------------------------
-            if mailbox_live:
-                await self.push_items(ctx, inbox_write, inbox_read, items_applied)
-
-            # ---- DeathLink -----------------------------------------------------------
-            if self.death_link:
-                await ctx.update_death_link(True)
-
-            if mailbox_live:
-                if self.death_count_seen is None:
-                    # First sight of a live mailbox: adopt the count rather than treat every
-                    # death so far as new. Also covers a client restart mid-session.
-                    self.death_count_seen = death_count
-                elif death_count > self.death_count_seen:
-                    self.death_count_seen = death_count
-                    if "DeathLink" in ctx.tags:
-                        await self.send_deathlink(ctx)
-                elif death_count < self.death_count_seen:
-                    # gAp lives in EWRAM, so loading a savestate rewinds the counter. Nobody
-                    # died; re-baseline so the next real death still registers as an increase.
-                    self.death_count_seen = death_count
-
-            if self.pending_death_link and mailbox_live:
-                self.pending_death_link = False
-                await bizhawk.write(ctx.bizhawk_ctx, [
-                    (self.ap.addr("killRequest"), [AP_KILL_REQUESTED], "Combined WRAM"),
-                ])
-
-            # ---- goal ----------------------------------------------------------------
-            if mailbox_live and final_cleared and not ctx.finished_game:
-                if disks_owned >= self.required_disks:
-                    if self.required_disks == 0:
-                        text = "Final stage cleared! Game completed!"
-                    elif self.player_warned:
-                        text = f"{disks_owned} Disks collected! Game completed!"
-                    else:
-                        extra_disks_collected = disks_owned - self.required_disks
-                        text = (f"Final stage cleared with {disks_owned} Disks, "
-                                f"{extra_disks_collected} more than needed!")
-                    await ctx.send_msgs([
-                        {"cmd": "Say", "text": text},
-                        {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
-                    ])
-                    ctx.finished_game = True
-                elif not self.player_warned:
-                    await ctx.send_msgs([
-                        {"cmd": "Say", "text": f"Final stage cleared! You still need "
-                                               f"{self.required_disks - disks_owned} more disks."},
-                        {"cmd": "Say", "text": "Collect more disks and the goal will send itself."},
-                        {"cmd": "Say", "text": "Do NOT save over your file after the credits!"} # TODO is this needed?
-                    ])
-                    self.player_warned = True
-
-            await self.restore_collected_disks(ctx, collected_in_game)
-
-        except bizhawk.RequestFailedError:
-            pass
-
-    async def restore_collected_disks(self, ctx, collected_in_game: bytes) -> None:
-        """
-        Keep save.disk synced with the locations the AP server says are checked.
-        Basically ensures that disks that are collected don't show up in game again.
-
-        Only the lower nibble (found) is touched. The upper nibble is the disks opened state
-        """
-        collected_after_restore = bytearray(collected_in_game)
-        for location_id in ctx.checked_locations:
-            if location_id in SKIP_DISK_RESTORE:
-                continue
-            if 1 <= location_id <= 180:
-                disk_index = location_id - 1
-                collected_after_restore[disk_index // 4] |= 1 << (disk_index % 4)
-
-        if collected_after_restore != collected_in_game:
-            await bizhawk.write(ctx.bizhawk_ctx, [
-                (CHECKED_LOCS_INV_ADDR, list(collected_after_restore), "Combined WRAM"),
-            ])
-
-    async def push_items(self, ctx: "BizHawkClientContext",
-                         inbox_write: int, inbox_read: int, items_applied: int) -> None:
-        """Hand received items to the game through the itemInbox field."""
-        slot_count = self.ap.count("itemInbox")
-        wrap_mask = slot_count - 1
-        max_items_waiting = slot_count - 1
-
-        every_code = [int(item.item) for item in ctx.items_received]
-
-        # itemsApplied going backwards means the game rewound for any reason.
-        if items_applied < self.items_applied_seen:
-            logger.info("MMZero3: game rewound (applied %d -> %d); resuming from %d.",
-                        self.items_applied_seen, items_applied, items_applied)
-            self.items_pushed = min(items_applied, len(every_code))
-        self.items_applied_seen = items_applied
-
-        codes_to_push = every_code[self.items_pushed:]
-        if not codes_to_push:
-            return
-
-        items_waiting = (inbox_write - inbox_read) & wrap_mask
-        slots_free = max_items_waiting - items_waiting
-        if slots_free <= 0:
-            # Wait until there are slots free (next game watcher check)
-            return
-
-        writes = []
-        next_slot = inbox_write
-        pushing = min(slots_free, len(codes_to_push))
-        for code in codes_to_push[:pushing]:
-            writes.append((self.ap.addr("itemInbox") + next_slot * INBOX_ELEMENT_SIZE,
-                           list(code.to_bytes(INBOX_ELEMENT_SIZE, "little")),
-                           "Combined WRAM"))
-            next_slot = (next_slot + 1) & wrap_mask  # loop back around
-
-        writes.append((self.ap.addr("inboxWriteIndex"), [next_slot], "Combined WRAM"))
-        await bizhawk.write(ctx.bizhawk_ctx, writes)
-
-        self.items_pushed += pushing
-        logger.debug("MMZero3: pushed %d item(s) to the game; %d still waiting.",
-                     pushing, len(codes_to_push) - pushing)
+    def on_package(self, ctx: "BizHawkClientContext", cmd: str, args: Dict[str, Any]) -> None:
+        if cmd == "Bounced" and "tags" in args:
+            if "DeathLink" in args["tags"] and args["data"]["source"] != ctx.slot_info[ctx.slot].name:
+                self.on_deathlink(ctx)
