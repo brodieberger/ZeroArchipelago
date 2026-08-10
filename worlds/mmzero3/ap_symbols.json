@@ -71,8 +71,8 @@
     }
   },
   "seed_config": {
-    "address": 142608496,
-    "rom_offset": 8390768,
+    "address": 142608712,
+    "rom_offset": 8390984,
     "size": 4,
     "fields": {
       "requiredDisks": {
@@ -102,7 +102,7 @@
     "gScore": 33751392,
     "gTextWindow": 33754128,
     "gECrystalGainAmount": 33748444,
-    "gApSeedConfig": 142608496
+    "gApSeedConfig": 142608712
   },
   "missing": []
 }
