@@ -10,13 +10,9 @@ class RequiredSecretDisks(Range):
     default = 80
 
 class EasyExSkill(Toggle):
-    """Rewards player with EX-Skill at the end of a level regardless of ranking. Currently recommended, as otherwise EXSkills are missable unless you load an earlier save or use savestates. This will be fixed later."""
+    """Rewards player with EX-Skill at the end of a level regardless of ranking."""
     display_name = "Always reward EX-Skill"
     
-
-class RewardNotification(Toggle):
-    """Will notify the player of earned Archipelago items. Currently the text is very slow and screen obscuring, so not recommended."""
-    display_name = "In-game reward notification"
 
 class RandomizeWeapons(Toggle):
     """When enabled, the four weapons (Buster, Z-Saber, Recoil Rod, Shield Boomerang) are added to the item pool and must be found before they can be used.
@@ -37,7 +33,6 @@ class StartingWeapons(OptionSet):
 class MMZero3Options(PerGameCommonOptions):
     required_secret_disks: RequiredSecretDisks
     easy_ex_skill: EasyExSkill
-    reward_notification: RewardNotification
     randomize_weapons: RandomizeWeapons
     starting_weapons: StartingWeapons
     death_link: DeathLink
