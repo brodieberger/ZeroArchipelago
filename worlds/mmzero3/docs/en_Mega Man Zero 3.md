@@ -1,6 +1,6 @@
 # Mega Man Zero 3 Archipelago
 
-Welcome to my project. Things are still under heavy development, but here you will find my development of a custom Archipelago World for Mega Man Zero 3 on the GBA. You should probably read everything here so you know what to expect before playing!
+Welcome to my project. Things are still under development, but here you will find my development of a custom Archipelago World for Mega Man Zero 3 on the GBA. You should probably read everything here so you know what to expect before playing!
 
 ## General Information
 - As of right now, the randomized items include: All secret disks, armor chips, EX Skills, subtanks, the four weapons, and E-Crystals as filler.
@@ -9,17 +9,21 @@ Welcome to my project. Things are still under heavy development, but here you wi
 
 - EX Skills are awarded based on your score on the level you just completed, rather than on your average score going into that level. (Yes, that's how they worked in the vanilla game).
 
-- You can leave every level at will, except the opening level, the Missile Factory, and Weil's Lab (These levels are tied to in game events). In the vanilla game, you would only escape levels that you have beaten previously. This change will be much more important later once the routing changes are implemented.
+- You can leave levels regardless if you have completed them or not. Except for the opening level, the Missile Factory, and Weil's Lab (These levels are tied to in game events).
 
 - Talking to the operator in the command room and choosing to transfer to a level you have already beaten now asks you how you want to run it. EXPLORE is the vanilla revisit for picking up disks you missed. RETRY MISSION plays the level as a real mission again, so the boss is back and you get another shot at the A+ rank check.
 
-- Pressing SELECT during gameplay swaps your sub weapon to the next one you own. This will be turned into a proper weapon wheel later.
+
+## Quality of Life Stuff
+
+- All skippable cutscenes are skippable by default.
+
+- Pressing SELECT during gameplay swaps your sub weapon to the next one you own. This will be turned into a weapon wheel later.
 
 - When Archipelago gives you an item, a small icon pops up over Zero's head with a sound. This is still an early WIP, so most items just show up as the AP logo.
 
 - Collecting certain lore related secret disks will simultaneously unlock a random e-Reader graphical change. A full list can be seen [here](https://tcrf.net/Mega_Man_Zero_3/e-Reader_Functions). 
 
-- All skippable cutscenes are skippable by default.
 
 ## Options
 
@@ -40,21 +44,22 @@ Welcome to my project. Things are still under heavy development, but here you wi
 
 ## Known Bugs
 
-- There's a chance that I may have missed out on a few dialogue related rewards. If there are any issues, please ping me in the discord!
+- This world has just underwent a massive overhaul from the ground up, I'm sure there are plenty of undocumented bugs, so please try to report as much as possible!
 
-- Retrying a level several times will mess up your overall rank, with the HUD desyncing with what it actually is in game. It looks like the game averages every clear you have ever done. The bosses use that rank to decide whether to use new attacks. Later I will be replacing how that number is worked out when the level select screen goes in, so I've left it alone for now.
+- Retrying a level several times will mess up your overall rank, with the HUD desyncing with what it actually is in game. It looks like the game averages every clear you have ever done. The bosses use that rank to decide whether to use new attacks, but not much else cares about it. Later I will be replacing how that number is worked out when the level select screen goes in, so I've left it alone for now.
 
 - There's probably some more bugs especially with world generation; I haven't done too much testing, so provide any feedback if something goes wrong!
 
 ## Planned Features
 - Routing changes. 
-  - Like how Mega Man 2 limits the available robot masters you could fight until you have the proper AP item, this world should likely do the same. 
+  - Right now most of the game is accessible from the very start. Very few locations checks are locked behind items, which makes the game too open. 
   - Either limit stages based off of an entry item (like MM2) or by total collected disk count (like SM64).
 - An improved level select screen. 
-  - All levels viewable from the start by tabbing from menu to menu.
+  - All levels viewable from the start by tabbing from boss group to boss group.
   - Boss portraits greyed out until you unlock them.
   - Once you have beaten a level it tells you how many disks you have left to find, and your best rank.
-- A weapon wheel on SELECT for swapping chips and weapons without opening the menu.
+  - Selecting a completed level asks if you want to revisit or reattempt (similar to how it works now).
+- A weapon wheel on SELECT for swapping chips and weapons without opening the menu. Right now it just cycles sub weapon.
 - Progressive weapon upgrades. 
   - The first one gives you the weapon
   - Each one after unlocks an upgrade (similar to Zero 1 and 2).
@@ -65,3 +70,7 @@ Welcome to my project. Things are still under heavy development, but here you wi
 
 ---
 If you have any questions, feel free to contact me on Discord: Stingrays110, though I'd prefer if you kept it to the Zero channel on the Archipelago Discord
+
+And if you'd like to see the source code for the ROM, [check it out here!](https://github.com/brodieberger/rmz3/tree/ap). 
+
+Huge thanks to akatsuki105, [whose WIP decompilation of RMZ3 laid the groundwork for this world!](https://github.com/mmzret/rmz3) 
