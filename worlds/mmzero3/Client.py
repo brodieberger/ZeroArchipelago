@@ -1,6 +1,4 @@
-import json
 import logging
-import pkgutil
 import time
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
@@ -8,6 +6,7 @@ from NetUtils import ClientStatus
 import worlds._bizhawk as bizhawk
 from worlds._bizhawk.client import BizHawkClient
 
+from . import Data
 from .Locations import location_data_table
 
 if TYPE_CHECKING:
@@ -30,9 +29,6 @@ AP_TAKEN_SUBTANK = {221: 1 << 0, 222: 1 << 1}
 # The four Sunken Library data files, left out as they are used in level logic.
 SKIP_DISK_RESTORE = frozenset({10, 16, 17, 18})
 
-# itemInbox uses u16s
-INBOX_ELEMENT_SIZE = 2
-
 # gAp.killRequest, matching ap.h.
 AP_KILL_REQUESTED = 1
 
@@ -40,41 +36,9 @@ DEFAULT_REQUIRED_DISKS = 80
 FINAL_STAGE_LOCATION = location_data_table["Complete Abandoned Research Laboratory"].address
 
 
-class ApBlock:
-    """gAp and its fields. Read from ap_symbols.json which is created when the ROM is compiled.
-
-    checkedLocations is game -> client: one bit per location ID, set by the ROM.
-    itemInbox is client -> game: the client fills a slot and advances inboxWriteIndex, the ROM grants it and advances inboxReadIndex. 
-    Equal indices mean the inbox is empty.
-    """
-
-    def __init__(self, symbols: dict):
-        ap_state = symbols["ap_state"]
-        self.ready_value: int = symbols["ready"]  # what gAp.ready reads once the game is up
-        self.version: int = symbols["version"]
-        self.base: int = ap_state["address"] - EWRAM_BASE
-        self._fields: dict = ap_state["fields"]
-
-    def addr(self, field: str) -> int:
-        return self.base + self._fields[field]["offset"]
-
-    def count(self, field: str) -> int:
-        """How many elements an array field holds (16 for itemInbox, 29 for checkedLocations)."""
-        return self._fields[field]["count"]
-
-
-def load_ap_symbols() -> Optional[ApBlock]:
-    try:
-        raw = pkgutil.get_data(__name__, "ap_symbols.json")
-        if raw is None:
-            raise FileNotFoundError("ap_symbols.json not found in the apworld")
-        return ApBlock(json.loads(raw.decode("utf-8")))
-    except Exception as exc:
-        logger.error("MMZero3: could not load ap_symbols.json (%s).", exc)
-        return None
-
-
 class MMZero3Client(BizHawkClient):
+    """Talks to gAp, the AP mailbox. See the ROM source code!"""
+
     game = "Mega Man Zero 3"
     system = "GBA"
     patch_suffix = ".apmmzero3"
@@ -82,13 +46,9 @@ class MMZero3Client(BizHawkClient):
     def __init__(self):
         super().__init__()
 
-        # gAp stuff. `ap` is None only if ap_symbols.json failed to load.
-        self.ap = load_ap_symbols()
         self.ap_disabled = False        # latched on a ROM/client version mismatch
         self.ap_handshake_logged = False
         self.locations_reported = set()  # location IDs already forwarded to the server
-        self.items_pushed = 0           # how much of items_received is in the game's RAM
-        self.items_applied_seen = None  # last gAp.itemsApplied;
 
         # Options, overwritten from slot data
         self.options_set = False
@@ -143,29 +103,29 @@ class MMZero3Client(BizHawkClient):
 
         ApInit runs on the first Process_Game(), so `ready` not matching means the game is still booting.
         """
-        if self.ap is None or self.ap_disabled or ctx.slot is None or not ctx.server_locations:
+        if self.ap_disabled or ctx.slot is None or not ctx.server_locations:
             return None
 
         ready, version, inbox_write, inbox_read, items_applied, disks_owned, death_count, can_accept_items = \
             await bizhawk.read(ctx.bizhawk_ctx, [
-                (self.ap.addr("ready"), 4, WRAM),
-                (self.ap.addr("version"), 2, WRAM),
-                (self.ap.addr("inboxWriteIndex"), 1, WRAM),
-                (self.ap.addr("inboxReadIndex"), 1, WRAM),
-                (self.ap.addr("itemsApplied"), 2, WRAM),
-                (self.ap.addr("disksOwned"), 2, WRAM),
-                (self.ap.addr("deathCount"), 2, WRAM),
-                (self.ap.addr("canAcceptItems"), 1, WRAM),
+                (Data.READY, 4, WRAM),
+                (Data.VERSION, 2, WRAM),
+                (Data.INBOX_WRITE_INDEX, 1, WRAM),
+                (Data.INBOX_READ_INDEX, 1, WRAM),
+                (Data.ITEMS_APPLIED, 2, WRAM),
+                (Data.DISKS_OWNED, 2, WRAM),
+                (Data.DEATH_COUNT, 2, WRAM),
+                (Data.CAN_ACCEPT_ITEMS, 1, WRAM),
             ])
 
-        if int.from_bytes(ready, "little") != self.ap.ready_value:
+        if int.from_bytes(ready, "little") != Data.AP_READY:
             return None
 
         rom_version = int.from_bytes(version, "little")
-        if rom_version != self.ap.version:
+        if rom_version != Data.AP_VERSION:
             self.ap_disabled = True
             message = (f"ROM/client version mismatch: the ROM is AP interface version "
-                       f"{rom_version}, this apworld is version {self.ap.version}. "
+                       f"{rom_version}, this apworld is version {Data.AP_VERSION}. "
                        f"Please generate a new game/ROM!")
             logger.error("MMZero3: %s", message)
             await ctx.send_msgs([{"cmd": "Say", "text": f"[MMZ3] {message}"}])
@@ -173,7 +133,7 @@ class MMZero3Client(BizHawkClient):
 
         if not self.ap_handshake_logged:
             logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
-                        self.ap.base + EWRAM_BASE, rom_version)
+                        Data.GAP + EWRAM_BASE, rom_version)
             self.ap_handshake_logged = True
 
         return {
@@ -186,9 +146,12 @@ class MMZero3Client(BizHawkClient):
         }
 
     async def handle_checked_locations(self, ctx: "BizHawkClientContext") -> None:
-        """Forward every newly set bit of gAp.checkedLocations to the server."""
+        """Forward every newly set bit of gAp.checkedLocations to the server.
+
+        Game -> client only: one bit per location ID, set by the ROM and never cleared.
+        """
         checked_bits = (await bizhawk.read(ctx.bizhawk_ctx, [
-            (self.ap.addr("checkedLocations"), self.ap.count("checkedLocations"), WRAM),
+            (Data.CHECKED_LOCATIONS, Data.CHECKED_LOCATIONS_COUNT, WRAM),
         ]))[0]
 
         newly_checked = []
@@ -210,48 +173,36 @@ class MMZero3Client(BizHawkClient):
 
     async def handle_received_items(self, ctx: "BizHawkClientContext",
                                     mailbox: Dict[str, int]) -> None:
-        """Hand received items to the game through the itemInbox ring."""
+        """Hand received items to the game through the itemInbox"""
         if not mailbox["can_accept_items"]:
             return
 
-        slot_count = self.ap.count("itemInbox")
-        wrap_mask = slot_count - 1
-        item_codes = [int(item.item) for item in ctx.items_received]
+        write_index = mailbox["inbox_write"]
+        read_index = mailbox["inbox_read"]
 
-        items_applied = mailbox["items_applied"]
-        if self.items_applied_seen is None:
-            self.items_pushed = min(items_applied, len(item_codes))
-            logger.info("MMZero3: game reports %d item(s) already applied; resuming from %d.",
-                        items_applied, self.items_pushed)
-        elif items_applied < self.items_applied_seen:
-            logger.info("MMZero3: game rewound (applied %d -> %d); resuming from %d.",
-                        self.items_applied_seen, items_applied, items_applied)
-            self.items_pushed = min(items_applied, len(item_codes))
-        self.items_applied_seen = items_applied
+        items_in_inbox = write_index - read_index
+        if items_in_inbox < 0:
+            items_in_inbox += Data.ITEM_INBOX_COUNT
 
-        codes_to_push = item_codes[self.items_pushed:]
-        if not codes_to_push:
+        items_sent = mailbox["items_applied"] + items_in_inbox
+
+        # One slot is always left free, so equal indices can only mean empty.
+        free_slots = Data.ITEM_INBOX_COUNT - 1 - items_in_inbox
+        unsent = [int(item.item) for item in ctx.items_received[items_sent:]]
+        to_send = unsent[:free_slots]
+        if not to_send:
             return
 
-        # One slot is always left free so one can always be read as empty.
-        items_waiting = (mailbox["inbox_write"] - mailbox["inbox_read"]) & wrap_mask
-        slots_free = (slot_count - 1) - items_waiting
-        if slots_free <= 0:
-            return  # try again next game_watcher run
-
-        pushing = min(slots_free, len(codes_to_push))
-        next_slot = mailbox["inbox_write"]
         writes = []
-        for code in codes_to_push[:pushing]:
-            writes.append((self.ap.addr("itemInbox") + next_slot * INBOX_ELEMENT_SIZE,
-                           list(code.to_bytes(INBOX_ELEMENT_SIZE, "little")), WRAM))
-            next_slot = (next_slot + 1) & wrap_mask
-        writes.append((self.ap.addr("inboxWriteIndex"), [next_slot], WRAM))
+        for code in to_send:
+            writes.append((Data.ITEM_INBOX + write_index * Data.ITEM_INBOX_ELEMENT_SIZE,
+                           list(code.to_bytes(Data.ITEM_INBOX_ELEMENT_SIZE, "little")), WRAM))
+            write_index = (write_index + 1) % Data.ITEM_INBOX_COUNT
+        writes.append((Data.INBOX_WRITE_INDEX, [write_index], WRAM))
         await bizhawk.write(ctx.bizhawk_ctx, writes)
 
-        self.items_pushed += pushing
         logger.debug("MMZero3: pushed %d item(s) to the game; %d still waiting.",
-                     pushing, len(codes_to_push) - pushing)
+                     len(to_send), len(unsent) - len(to_send))
 
     async def handle_death_link(self, ctx: "BizHawkClientContext",
                                 mailbox: Dict[str, int]) -> None:
@@ -268,7 +219,7 @@ class MMZero3Client(BizHawkClient):
         if self.pending_death_link:
             self.pending_death_link = False
             await bizhawk.write(ctx.bizhawk_ctx, [
-                (self.ap.addr("killRequest"), [AP_KILL_REQUESTED], WRAM),
+                (Data.KILL_REQUEST, [AP_KILL_REQUESTED], WRAM),
             ])
 
     async def handle_goal(self, ctx: "BizHawkClientContext", mailbox: Dict[str, int]) -> None:

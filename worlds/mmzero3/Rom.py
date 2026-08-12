@@ -1,12 +1,12 @@
-import json
 import os
-import pkgutil
 from typing import TYPE_CHECKING
 
 import settings
 import Utils
 from settings import get_settings
 from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes
+
+from . import Data
 
 if TYPE_CHECKING:
     from . import MMZero3World
@@ -22,13 +22,6 @@ def get_base_rom_bytes() -> bytes:
         file_name = Utils.user_path(file_name)
     with open(file_name, "rb") as infile:
         return infile.read()
-
-
-def load_ap_symbols() -> dict:
-    raw = pkgutil.get_data(__name__, "ap_symbols.json")
-    if raw is None:
-        raise FileNotFoundError("ap_symbols.json not found in the apworld")
-    return json.loads(raw.decode("utf-8"))
 
 
 class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
@@ -66,13 +59,11 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "easyExSkill": 1 if world.options.easy_ex_skill.value else 0,
     }
 
-    layout = load_ap_symbols()["seed_config"]
-    seed_config = bytearray(layout["size"])
-    for name, field in layout["fields"].items():
-        at = field["offset"]
-        seed_config[at:at + field["size"]] = values[name].to_bytes(field["size"], "little")
+    seed_config = bytearray(Data.SEED_CONFIG_SIZE)
+    for name, (offset, size) in Data.SEED_CONFIG_FIELDS.items():
+        seed_config[offset:offset + size] = values[name].to_bytes(size, "little")
 
-    patch.write_token(APTokenTypes.WRITE, layout["rom_offset"], bytes(seed_config))
+    patch.write_token(APTokenTypes.WRITE, Data.SEED_CONFIG_ROM_OFFSET, bytes(seed_config))
     patch.write_file("token_data.bin", patch.get_token_binary())
 
 
