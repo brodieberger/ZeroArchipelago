@@ -15,22 +15,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger("Client")
 
 WRAM = "Combined WRAM"
-EWRAM_BASE = 0x02000000
 
 ROM_NAME_ADDR = 0x0A0
 EXPECTED_ROM_NAME = "MEGAMANZERO3"
 
 SAVE_ADDR = 0x370FC
-CHECKED_LOCS_INV_ADDR = SAVE_ADDR + 0x0BC   # save.disk, 4 disks per byte, low nibble found
-DISK_BYTES = 45
-TAKEN_FLAGS_ADDR = SAVE_ADDR + 0x248        # save.unused_240[AP_TAKEN_BYTE]
-AP_TAKEN_SUBTANK = {221: 1 << 0, 222: 1 << 1}
+CHECKED_LOCS_INV_ADDR = SAVE_ADDR + 0x0BC   # save.disk, 4 disks per byte, low nibble means found.
+UNUSED_240_ADDR = SAVE_ADDR + 0x240         # save.unused_240, hijacked to store AP related progress
+TAKEN_FLAGS_ADDR = UNUSED_240_ADDR + Data.AP_TAKEN_BYTE
+
+AP_TAKEN_SUBTANK = {
+    Data.AP_LOC_SUBTANK_1: Data.AP_TAKEN_SUBTANK1,
+    Data.AP_LOC_SUBTANK_2: Data.AP_TAKEN_SUBTANK2,
+}
 
 # The four Sunken Library data files, left out as they are used in level logic.
 SKIP_DISK_RESTORE = frozenset({10, 16, 17, 18})
-
-# gAp.killRequest, matching ap.h.
-AP_KILL_REQUESTED = 1
 
 DEFAULT_REQUIRED_DISKS = 80
 FINAL_STAGE_LOCATION = location_data_table["Complete Abandoned Research Laboratory"].address
@@ -46,7 +46,7 @@ class MMZero3Client(BizHawkClient):
     def __init__(self):
         super().__init__()
 
-        self.ap_disabled = False        # latched on a ROM/client version mismatch
+        self.ap_disabled = False        # for ROM/client version mismatch
         self.ap_handshake_logged = False
         self.locations_reported = set()  # location IDs already forwarded to the server
 
@@ -75,6 +75,9 @@ class MMZero3Client(BizHawkClient):
         return True
 
     async def game_watcher(self, ctx: "BizHawkClientContext") -> None:
+        """If you are searching through the code to understand how it works, I would start here!
+        Runs every second or so and processes most of the logic. Interacts with the gAP fields,
+        which you can find in the Rom's codebase as ap.c and ap.h"""
         try:
             self.read_slot_data(ctx)
             if self.death_link:
@@ -101,7 +104,7 @@ class MMZero3Client(BizHawkClient):
     async def read_mailbox(self, ctx: "BizHawkClientContext") -> Optional[Dict[str, int]]:
         """One read of gAp. None means the ROM isn't ready.
 
-        ApInit runs on the first Process_Game(), so `ready` not matching means the game is still booting.
+        ApInit runs on the first Process_Game(), so the ready value not matching means the game is still booting or in the starting menu.
         """
         if self.ap_disabled or ctx.slot is None or not ctx.server_locations:
             return None
@@ -124,7 +127,7 @@ class MMZero3Client(BizHawkClient):
         rom_version = int.from_bytes(version, "little")
         if rom_version != Data.AP_VERSION:
             self.ap_disabled = True
-            message = (f"ROM/client version mismatch: the ROM is AP interface version "
+            message = (f"ROM/client version mismatch: the ROM is version "
                        f"{rom_version}, this apworld is version {Data.AP_VERSION}. "
                        f"Please generate a new game/ROM!")
             logger.error("MMZero3: %s", message)
@@ -132,8 +135,7 @@ class MMZero3Client(BizHawkClient):
             return None
 
         if not self.ap_handshake_logged:
-            logger.info("MMZero3: gAp mailbox live at 0x%06X, AP interface version %d.",
-                        Data.GAP + EWRAM_BASE, rom_version)
+            logger.info("MMZero3: gAp mailbox live!")
             self.ap_handshake_logged = True
 
         return {
@@ -156,6 +158,7 @@ class MMZero3Client(BizHawkClient):
 
         newly_checked = []
         for location_id in range(len(checked_bits) * 8):
+            # 8 locations per byte: >> 3 picks the byte, & 7 the bit inside it. Each bit is one location.
             if not checked_bits[location_id >> 3] & (1 << (location_id & 7)):
                 continue
             if location_id in self.locations_reported:
@@ -164,8 +167,7 @@ class MMZero3Client(BizHawkClient):
             if location_id in ctx.server_locations:
                 newly_checked.append(location_id)
             else:
-                logger.warning("MMZero3: ROM reported unknown location id %d; ignoring.",
-                               location_id)
+                logger.warning("MMZero3: ROM reported unknown location id %d.", location_id)
 
         if newly_checked:
             await ctx.send_msgs([{"cmd": "LocationChecks", "locations": newly_checked}])
@@ -197,7 +199,9 @@ class MMZero3Client(BizHawkClient):
         for code in to_send:
             writes.append((Data.ITEM_INBOX + write_index * Data.ITEM_INBOX_ELEMENT_SIZE,
                            list(code.to_bytes(Data.ITEM_INBOX_ELEMENT_SIZE, "little")), WRAM))
-            write_index = (write_index + 1) % Data.ITEM_INBOX_COUNT
+            write_index += 1
+            if write_index == Data.ITEM_INBOX_COUNT:
+                write_index = 0
         writes.append((Data.INBOX_WRITE_INDEX, [write_index], WRAM))
         await bizhawk.write(ctx.bizhawk_ctx, writes)
 
@@ -219,7 +223,7 @@ class MMZero3Client(BizHawkClient):
         if self.pending_death_link:
             self.pending_death_link = False
             await bizhawk.write(ctx.bizhawk_ctx, [
-                (Data.KILL_REQUEST, [AP_KILL_REQUESTED], WRAM),
+                (Data.KILL_REQUEST, [Data.AP_KILL_REQUESTED], WRAM),
             ])
 
     async def handle_goal(self, ctx: "BizHawkClientContext", mailbox: Dict[str, int]) -> None:
@@ -265,7 +269,7 @@ class MMZero3Client(BizHawkClient):
         Stops pickups from respawning
         """
         collected_disks, taken = await bizhawk.read(ctx.bizhawk_ctx, [
-            (CHECKED_LOCS_INV_ADDR, DISK_BYTES, WRAM),
+            (CHECKED_LOCS_INV_ADDR, Data.AP_DISK_BYTES, WRAM),
             (TAKEN_FLAGS_ADDR, 1, WRAM),
         ])
 
@@ -274,7 +278,7 @@ class MMZero3Client(BizHawkClient):
         for location_id in ctx.checked_locations:
             if location_id in SKIP_DISK_RESTORE:
                 continue
-            if 1 <= location_id <= 180:
+            if Data.AP_ITEM_DISK_FIRST <= location_id <= Data.AP_ITEM_DISK_LAST:
                 disk_index = location_id - 1
                 repaired_disks[disk_index // 4] |= 1 << (disk_index % 4)
             elif location_id in AP_TAKEN_SUBTANK:
