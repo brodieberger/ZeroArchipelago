@@ -135,7 +135,7 @@ class MMZero3Client(BizHawkClient):
             return None
 
         if not self.ap_handshake_logged:
-            logger.info("MMZero3: gAp mailbox live!")
+            logger.info("MMZero3: Archipelago Connected!")
             self.ap_handshake_logged = True
 
         return {
