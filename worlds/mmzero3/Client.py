@@ -20,11 +20,11 @@ ROM_NAME_ADDR = 0x0A0
 EXPECTED_ROM_NAME = "MEGAMANZERO3"
 
 SAVE_ADDR = 0x370FC
-CHECKED_LOCS_INV_ADDR = SAVE_ADDR + 0x0BC   # save.disk, 4 disks per byte, low nibble means found.
-UNUSED_240_ADDR = SAVE_ADDR + 0x240         # save.unused_240, hijacked to store AP related progress
+SAVE_DISK_ADDR = SAVE_ADDR + 0x0BC    # save.disk, 4 disks per byte, low nibble means found.
+UNUSED_240_ADDR = SAVE_ADDR + 0x240   # save.unused_240, hijacked to store AP related progress
 TAKEN_FLAGS_ADDR = UNUSED_240_ADDR + Data.AP_TAKEN_BYTE
 
-AP_TAKEN_SUBTANK = {
+SUBTANK_TAKEN_BITS = {
     Data.AP_LOC_SUBTANK_1: Data.AP_TAKEN_SUBTANK1,
     Data.AP_LOC_SUBTANK_2: Data.AP_TAKEN_SUBTANK2,
 }
@@ -156,22 +156,22 @@ class MMZero3Client(BizHawkClient):
             (Data.CHECKED_LOCATIONS, Data.CHECKED_LOCATIONS_COUNT, WRAM),
         ]))[0]
 
-        newly_checked = []
+        newly_checked_locations = []
         for location_id in range(len(checked_bits) * 8):
-            # 8 locations per byte: >> 3 picks the byte, & 7 the bit inside it. Each bit is one location.
+            # 8 locations per byte: >> 3 picks the byte, & 7 the bit inside it. Each bit is one location found in theg ame.
             if not checked_bits[location_id >> 3] & (1 << (location_id & 7)):
                 continue
             if location_id in self.locations_reported:
                 continue
             self.locations_reported.add(location_id)
             if location_id in ctx.server_locations:
-                newly_checked.append(location_id)
+                newly_checked_locations.append(location_id)
             else:
                 logger.warning("MMZero3: ROM reported unknown location id %d.", location_id)
 
-        if newly_checked:
-            await ctx.send_msgs([{"cmd": "LocationChecks", "locations": newly_checked}])
-            logger.debug("MMZero3: reported %d location(s): %s", len(newly_checked), newly_checked)
+        if newly_checked_locations:
+            await ctx.send_msgs([{"cmd": "LocationChecks", "locations": newly_checked_locations}])
+            logger.debug("MMZero3: reported %d locations: %s", len(newly_checked_locations), newly_checked_locations)
 
     async def handle_received_items(self, ctx: "BizHawkClientContext",
                                     mailbox: Dict[str, int]) -> None:
@@ -186,27 +186,30 @@ class MMZero3Client(BizHawkClient):
         if items_in_inbox < 0:
             items_in_inbox += Data.ITEM_INBOX_COUNT
 
-        items_sent = mailbox["items_applied"] + items_in_inbox
+        items_given_to_game = mailbox["items_applied"] + items_in_inbox
 
         # One slot is always left free, so equal indices can only mean empty.
         free_slots = Data.ITEM_INBOX_COUNT - 1 - items_in_inbox
-        unsent = [int(item.item) for item in ctx.items_received[items_sent:]]
-        to_send = unsent[:free_slots]
-        if not to_send:
+        items_to_give = ctx.items_received[items_given_to_game:items_given_to_game + free_slots]
+        if not items_to_give:
             return
 
         writes = []
-        for code in to_send:
-            writes.append((Data.ITEM_INBOX + write_index * Data.ITEM_INBOX_ELEMENT_SIZE,
-                           list(code.to_bytes(Data.ITEM_INBOX_ELEMENT_SIZE, "little")), WRAM))
+        for item in items_to_give:
+            item_code = int(item.item)
+            address = Data.ITEM_INBOX + write_index * Data.ITEM_INBOX_ELEMENT_SIZE
+            code_bytes = item_code.to_bytes(Data.ITEM_INBOX_ELEMENT_SIZE, "little")
+            writes.append((address, list(code_bytes), WRAM))
+
             write_index += 1
             if write_index == Data.ITEM_INBOX_COUNT:
                 write_index = 0
+
         writes.append((Data.INBOX_WRITE_INDEX, [write_index], WRAM))
         await bizhawk.write(ctx.bizhawk_ctx, writes)
 
-        logger.debug("MMZero3: pushed %d item(s) to the game; %d still waiting.",
-                     len(to_send), len(unsent) - len(to_send))
+        still_waiting = len(ctx.items_received) - items_given_to_game - len(items_to_give)
+        logger.debug("MMZero3: pushed %d items to the game, %d total still waiting.", len(items_to_give), still_waiting)
 
     async def handle_death_link(self, ctx: "BizHawkClientContext",
                                 mailbox: Dict[str, int]) -> None:
@@ -268,26 +271,25 @@ class MMZero3Client(BizHawkClient):
 
         Stops pickups from respawning
         """
-        collected_disks, taken = await bizhawk.read(ctx.bizhawk_ctx, [
-            (CHECKED_LOCS_INV_ADDR, Data.AP_DISK_BYTES, WRAM),
+        collected_disks, taken_byte = await bizhawk.read(ctx.bizhawk_ctx, [
+            (SAVE_DISK_ADDR, Data.AP_DISK_BYTES, WRAM),
             (TAKEN_FLAGS_ADDR, 1, WRAM),
         ])
-
         repaired_disks = bytearray(collected_disks)
-        repaired_taken = taken[0]
+        repaired_taken = taken_byte[0]
         for location_id in ctx.checked_locations:
             if location_id in SKIP_DISK_RESTORE:
                 continue
             if Data.AP_ITEM_DISK_FIRST <= location_id <= Data.AP_ITEM_DISK_LAST:
                 disk_index = location_id - 1
                 repaired_disks[disk_index // 4] |= 1 << (disk_index % 4)
-            elif location_id in AP_TAKEN_SUBTANK:
-                repaired_taken |= AP_TAKEN_SUBTANK[location_id]
+            elif location_id in SUBTANK_TAKEN_BITS:
+                repaired_taken |= SUBTANK_TAKEN_BITS[location_id]
 
         writes = []
         if repaired_disks != collected_disks:
-            writes.append((CHECKED_LOCS_INV_ADDR, list(repaired_disks), WRAM))
-        if repaired_taken != taken[0]:
+            writes.append((SAVE_DISK_ADDR, list(repaired_disks), WRAM))
+        if repaired_taken != taken_byte[0]:
             writes.append((TAKEN_FLAGS_ADDR, [repaired_taken], WRAM))
         if writes:
             await bizhawk.write(ctx.bizhawk_ctx, writes)
