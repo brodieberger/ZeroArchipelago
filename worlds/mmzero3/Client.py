@@ -46,7 +46,7 @@ class MMZero3Client(BizHawkClient):
     def __init__(self):
         super().__init__()
 
-        self.ap_disabled = False        # for ROM/client version mismatch
+        self.version_mismatch = False
         self.ap_handshake_logged = False
         self.locations_reported = set()  # location IDs already forwarded to the server
 
@@ -107,27 +107,29 @@ class MMZero3Client(BizHawkClient):
 
         ApInit runs on the first Process_Game(), so the ready value not matching means the game is still booting or in the starting menu.
         """
-        if self.ap_disabled or ctx.slot is None or not ctx.server_locations:
+        if self.version_mismatch or ctx.slot is None or not ctx.server_locations:
             return None
 
-        ready, version, inbox_write, inbox_read, items_applied, disks_owned, death_count, can_accept_items = \
-            await bizhawk.read(ctx.bizhawk_ctx, [
-                (Data.READY, 4, WRAM),
-                (Data.VERSION, 2, WRAM),
-                (Data.INBOX_WRITE_INDEX, 1, WRAM),
-                (Data.INBOX_READ_INDEX, 1, WRAM),
-                (Data.ITEMS_APPLIED, 2, WRAM),
-                (Data.DISKS_OWNED, 2, WRAM),
-                (Data.DEATH_COUNT, 2, WRAM),
-                (Data.CAN_ACCEPT_ITEMS, 1, WRAM),
-            ])
+        mailbox_bytes = await bizhawk.read(ctx.bizhawk_ctx, [
+            (Data.READY, 4, WRAM),
+            (Data.VERSION, 2, WRAM),
+            (Data.INBOX_WRITE_INDEX, 1, WRAM),
+            (Data.INBOX_READ_INDEX, 1, WRAM),
+            (Data.ITEMS_APPLIED, 2, WRAM),
+            (Data.DISKS_OWNED, 2, WRAM),
+            (Data.DEATH_COUNT, 2, WRAM),
+            (Data.CAN_ACCEPT_ITEMS, 1, WRAM),
+        ])
+
+        (ready, version, inbox_write_index, inbox_read_index,
+         items_applied, disks_owned, death_count, can_accept_items) = mailbox_bytes
 
         if int.from_bytes(ready, "little") != Data.AP_READY:
             return None
 
         rom_version = int.from_bytes(version, "little")
         if rom_version != Data.AP_VERSION:
-            self.ap_disabled = True
+            self.version_mismatch = True
             message = (f"ROM/client version mismatch: the ROM is version "
                        f"{rom_version}, this apworld is version {Data.AP_VERSION}. "
                        f"Please generate a new game/ROM!")
@@ -140,8 +142,8 @@ class MMZero3Client(BizHawkClient):
             self.ap_handshake_logged = True
 
         return {
-            "inbox_write": inbox_write[0],
-            "inbox_read": inbox_read[0],
+            "inbox_write_index": inbox_write_index[0],
+            "inbox_read_index": inbox_read_index[0],
             "items_applied": int.from_bytes(items_applied, "little"),
             "disks_owned": int.from_bytes(disks_owned, "little"),
             "death_count": int.from_bytes(death_count, "little"),
@@ -180,8 +182,8 @@ class MMZero3Client(BizHawkClient):
         if not mailbox["can_accept_items"]:
             return
 
-        write_index = mailbox["inbox_write"]
-        read_index = mailbox["inbox_read"]
+        write_index = mailbox["inbox_write_index"]
+        read_index = mailbox["inbox_read_index"]
 
         items_in_inbox = write_index - read_index
         if items_in_inbox < 0:
@@ -260,12 +262,12 @@ class MMZero3Client(BizHawkClient):
         if self.required_disks == 0:
             text = "Final stage cleared! Game completed!"
         elif self.player_warned:
-            text = f"{disks_owned} Disks collected! Game completed!"
+            victory_message = f"{disks_owned} Disks collected! Game completed!"
         else:
-            text = (f"Final stage cleared with {disks_owned} Disks, "
+            victory_message = (f"Final stage cleared with {disks_owned} Disks, "
                     f"{disks_owned - self.required_disks} more than needed!")
         await ctx.send_msgs([
-            {"cmd": "Say", "text": text},
+            {"cmd": "Say", "text": victory_message},
             {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
         ])
         ctx.finished_game = True
