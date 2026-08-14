@@ -59,6 +59,7 @@ class MMZero3Client(BizHawkClient):
         self.pending_death_link = False
         self.death_count_seen = None    # last gAp.deathCount; None until the mailbox is live
 
+        self.save_loaded = False
         self.player_warned = False      # told the player the final stage needs more disks
 
     async def validate_rom(self, ctx: "BizHawkClientContext") -> bool:
@@ -235,15 +236,18 @@ class MMZero3Client(BizHawkClient):
         """
         if ctx.finished_game:
             return
-        if not mailbox["can_accept_items"]:
-            return
+        if mailbox["can_accept_items"]:
+            # Variable is a temp fix, just to make sure that the warning message is displayed,
+            # Since without this check it wouldn't give the warning message until you load a new game after the final level.
+            self.save_loaded = True
+
         if (FINAL_STAGE_LOCATION not in ctx.checked_locations
                 and FINAL_STAGE_LOCATION not in self.locations_reported):
             return
 
         disks_owned = mailbox["disks_owned"]
         if disks_owned < self.required_disks:
-            if not self.player_warned:
+            if self.save_loaded and not self.player_warned:
                 self.player_warned = True
                 await ctx.send_msgs([
                     {"cmd": "Say", "text": f"Final stage cleared! You still need "
