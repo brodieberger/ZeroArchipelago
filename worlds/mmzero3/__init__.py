@@ -4,7 +4,8 @@ from typing import List, Dict, Any, ClassVar
 from BaseClasses import Region, Tutorial
 from worlds.AutoWorld import WebWorld, World
 from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule
-from .Items import MMZero3Item, item_data_table, item_table
+from .Items import (MMZero3Item, STORY_LATE, STORY_MID, item_data_table,
+                    item_table, stage_access_names, stage_names)
 from .Locations import MMZero3Location, location_data_table, location_table, locked_locations
 from .Options import MMZero3Options
 from .Regions import region_data_table
@@ -65,7 +66,7 @@ class MMZero3World(World):
 
         for name, item in item_data_table.items():
             if item.code and item.can_create(self) and name not in locked_item_names:
-                item_pool.append(self.create_item(name))
+                item_pool.extend(self.create_item(name) for _ in range(item.count))
 
         self.multiworld.itempool += item_pool
 
@@ -129,40 +130,25 @@ class MMZero3World(World):
         def has_flame(state):
             return state.has("Flame Body Chip", self.player)
 
-        set_rule(self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
-                    lambda state: state.has("Sub Arcadia Cleared", self.player))
-        
-        set_rule(
-            self.multiworld.get_entrance("To Missile Factory", self.player),
-            lambda state: all(state.has(item, self.player) for item in [
-                "Aegis Volcano Base Cleared",
-                "Oceanic Highway Ruins Cleared",
-                "Weapons Repair Factory Cleared",
-                "Old Residential Cleared",
-            ])
-        )
+        # Access items.
+        for stage_name in stage_names:
+            set_rule(
+                self.multiworld.get_entrance(f"To {stage_name}", self.player),
+                lambda state, item=f"{stage_name} Access": state.has(item, self.player),
+            )
 
-        set_rule(
-            self.multiworld.get_entrance("To Area X-2", self.player),
-            lambda state: all(state.has(item, self.player) for item in [
-                "Forest of Anatre Cleared",
-                "Frontline Ice Base Cleared",
-                "Twilight Desert Cleared",
-            ])
-        )
+        # The base's later mission sets.
+        set_rule(self.multiworld.get_entrance("To Resistance Base 2", self.player),
+                 lambda state: state.has("Story Progress", self.player, STORY_MID))
 
+        set_rule(self.multiworld.get_entrance("To Resistance Base 3", self.player),
+                 lambda state: state.has("Story Progress", self.player, STORY_LATE))
+
+        # The final stage. Needs every access item
         set_rule(
-            self.multiworld.get_entrance("To Sub Arcadia", self.player),
-            lambda state: all(state.has(item, self.player) for item in [
-                "Giant Elevator Cleared",
-                "Sunken Library Cleared",
-                "Snowy Plains Cleared",
-                "Energy Facility Cleared"
-            ])
+            self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
+            lambda state: state.has_all(stage_access_names, self.player),
         )
-                        
-        set_rule(self.multiworld.get_location("Complete Abandoned Research Laboratory", self.player),
-                    lambda state: state.can_reach_region("Abandoned Research Laboratory", self.player))
 
         # Location rules: Recoil Rod required
         for loc_name in [

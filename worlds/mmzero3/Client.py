@@ -260,7 +260,7 @@ class MMZero3Client(BizHawkClient):
             return
 
         if self.required_disks == 0:
-            text = "Final stage cleared! Game completed!"
+            victory_message = "Final stage cleared! Game completed!"
         elif self.player_warned:
             victory_message = f"{disks_owned} Disks collected! Game completed!"
         else:
