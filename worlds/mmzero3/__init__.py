@@ -56,6 +56,10 @@ class MMZero3World(World):
             if not self.starting_weapons:
                 self.starting_weapons = {"Buster"}
 
+        # Force the first stage access item to be early local
+        first_stage_access = self.random.choice(stage_access_names)
+        self.multiworld.local_early_items[self.player][first_stage_access] = 1
+
     def create_item(self, name: str) -> MMZero3Item:
         return MMZero3Item(name, item_data_table[name].type, item_data_table[name].code, self.player)
 
