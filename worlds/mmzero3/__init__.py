@@ -4,7 +4,8 @@ from typing import List, Dict, Any, ClassVar
 from BaseClasses import Region, Tutorial
 from worlds.AutoWorld import WebWorld, World
 from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule
-from .Items import MMZero3Item, item_data_table, item_table
+from .Items import (MMZero3Item, STORY_LATE, STORY_MID, item_data_table,
+                    item_table, stage_access_names, stage_names)
 from .Locations import MMZero3Location, location_data_table, location_table, locked_locations
 from .Options import MMZero3Options
 from .Regions import region_data_table
@@ -55,6 +56,10 @@ class MMZero3World(World):
             if not self.starting_weapons:
                 self.starting_weapons = {"Buster"}
 
+        # Force the first stage access item to be early local
+        first_stage_access = self.random.choice(stage_access_names)
+        self.multiworld.local_early_items[self.player][first_stage_access] = 1
+
     def create_item(self, name: str) -> MMZero3Item:
         return MMZero3Item(name, item_data_table[name].type, item_data_table[name].code, self.player)
 
@@ -65,7 +70,7 @@ class MMZero3World(World):
 
         for name, item in item_data_table.items():
             if item.code and item.can_create(self) and name not in locked_item_names:
-                item_pool.append(self.create_item(name))
+                item_pool.extend(self.create_item(name) for _ in range(item.count))
 
         self.multiworld.itempool += item_pool
 
@@ -109,7 +114,6 @@ class MMZero3World(World):
     def fill_slot_data(self) -> Dict[str, Any]:
         return {
             "required_secret_disks": self.options.required_secret_disks.value,
-            "goal": self.options.goal.value,
             "easy_ex_skill": self.options.easy_ex_skill.value,
             "randomize_weapons": self.options.randomize_weapons.value,
             "starting_weapons": sorted(self.starting_weapons),
@@ -130,40 +134,25 @@ class MMZero3World(World):
         def has_flame(state):
             return state.has("Flame Body Chip", self.player)
 
-        set_rule(self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
-                    lambda state: state.has("Sub Arcadia Cleared", self.player))
-        
-        set_rule(
-            self.multiworld.get_entrance("To Missile Factory", self.player),
-            lambda state: all(state.has(item, self.player) for item in [
-                "Aegis Volcano Base Cleared",
-                "Oceanic Highway Ruins Cleared",
-                "Weapons Repair Factory Cleared",
-                "Old Residential Cleared",
-            ])
-        )
+        # Access items.
+        for stage_name in stage_names:
+            set_rule(
+                self.multiworld.get_entrance(f"To {stage_name}", self.player),
+                lambda state, item=f"{stage_name} Access": state.has(item, self.player),
+            )
 
-        set_rule(
-            self.multiworld.get_entrance("To Area X-2", self.player),
-            lambda state: all(state.has(item, self.player) for item in [
-                "Forest of Anatre Cleared",
-                "Frontline Ice Base Cleared",
-                "Twilight Desert Cleared",
-            ])
-        )
+        # The base's later mission sets.
+        set_rule(self.multiworld.get_entrance("To Resistance Base 2", self.player),
+                 lambda state: state.has("Story Progress", self.player, STORY_MID))
 
+        set_rule(self.multiworld.get_entrance("To Resistance Base 3", self.player),
+                 lambda state: state.has("Story Progress", self.player, STORY_LATE))
+
+        # The final stage. Needs every access item
         set_rule(
-            self.multiworld.get_entrance("To Sub Arcadia", self.player),
-            lambda state: all(state.has(item, self.player) for item in [
-                "Giant Elevator Cleared",
-                "Sunken Library Cleared",
-                "Snowy Plains Cleared",
-                "Energy Facility Cleared"
-            ])
+            self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
+            lambda state: state.has_all(stage_access_names, self.player),
         )
-                        
-        set_rule(self.multiworld.get_location("Complete Abandoned Research Laboratory", self.player),
-                    lambda state: state.can_reach_region("Abandoned Research Laboratory", self.player))
 
         # Location rules: Recoil Rod required
         for loc_name in [
@@ -211,7 +200,7 @@ class MMZero3World(World):
         
     def generate_output(self, output_directory: str) -> None:
         patch = MMZero3ProcedurePatch(player=self.player, player_name=self.player_name)
-        patch.write_file("mmz3-ap.bsdiff4", pkgutil.get_data(__name__, "mmz3-ap.bsdiff4"))
+        patch.write_file("basepatch.bsdiff4", pkgutil.get_data(__name__, "basepatch.bsdiff4"))
         write_tokens(self, patch)
         out_file_name = self.multiworld.get_out_file_name_base(self.player)
         patch.write(os.path.join(output_directory, f"{out_file_name}{patch.patch_file_ending}"))

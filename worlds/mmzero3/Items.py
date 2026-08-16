@@ -12,9 +12,11 @@ class MMZero3ItemData(NamedTuple):
     code: Optional[int] = None
     type: ItemClassification = ItemClassification.filler
     can_create: Callable[["MMZero3World"], bool] = lambda world: True
+    # How many copies of the item go in the pool. For progressive items.
+    count: int = 1
 
 
-# Stage names as they appear in game order
+# Stage names as they appear in game order. Final level not included here.
 stage_names = [
     "Derelict Spacecraft", "Aegis Volcano Base", "Oceanic Highway Ruins",
     "Weapons Repair Factory", "Old Residential", "Missile Factory",
@@ -217,8 +219,10 @@ item_data_table: Dict[str, MMZero3ItemData] = {
     "Secret Disk 180: Buster Shot: Realistic Bullets": MMZero3ItemData(code=180, type=ItemClassification.filler),
     
     "Victory": MMZero3ItemData(code=300,type=ItemClassification.progression),
+
+    # Stage access. Abandoned Research Laboratory not included, since its based on a goal condition.
     **{
-        f"{stage} Cleared": MMZero3ItemData(
+        f"{stage} Access": MMZero3ItemData(
             code=180 + idx + 1,
             type=ItemClassification.progression,
         )
@@ -237,18 +241,18 @@ item_data_table: Dict[str, MMZero3ItemData] = {
     "Shadow Dash Foot Chip": MMZero3ItemData(code=205, type=ItemClassification.useful),
 
     # EX Skills
-    "EX Skill: Burst Shot": MMZero3ItemData(code=206, type=ItemClassification.useful),
-    "EX Skill: Throw Blade": MMZero3ItemData(code=207, type=ItemClassification.useful),
-    "EX Skill: Saber Smash": MMZero3ItemData(code=208, type=ItemClassification.useful),
-    "EX Skill: 1000 Slash": MMZero3ItemData(code=209, type=ItemClassification.useful),
-    "EX Skill: Shield Sweep": MMZero3ItemData(code=210, type=ItemClassification.useful),
-    "EX Skill: Split Heavens": MMZero3ItemData(code=211, type=ItemClassification.useful),
-    "EX Skill: Blizzard Arrow": MMZero3ItemData(code=212, type=ItemClassification.useful),
-    "EX Skill: Reflected Laser": MMZero3ItemData(code=213, type=ItemClassification.useful),
-    "EX Skill: Soul Launcher": MMZero3ItemData(code=214, type=ItemClassification.useful),
-    "EX Skill: Orbit Shield": MMZero3ItemData(code=215, type=ItemClassification.useful),
-    "EX Skill: V-Shot": MMZero3ItemData(code=216, type=ItemClassification.useful),
-    "EX Skill: Gale Attack": MMZero3ItemData(code=217, type=ItemClassification.useful),
+    "EX Skill: Burst Shot": MMZero3ItemData(code=208, type=ItemClassification.useful),
+    "EX Skill: Throw Blade": MMZero3ItemData(code=213, type=ItemClassification.useful),
+    "EX Skill: Saber Smash": MMZero3ItemData(code=211, type=ItemClassification.useful),
+    "EX Skill: 1000 Slash": MMZero3ItemData(code=214, type=ItemClassification.useful),
+    "EX Skill: Shield Sweep": MMZero3ItemData(code=216, type=ItemClassification.useful),
+    "EX Skill: Split Heavens": MMZero3ItemData(code=212, type=ItemClassification.useful),
+    "EX Skill: Blizzard Arrow": MMZero3ItemData(code=209, type=ItemClassification.useful),
+    "EX Skill: Reflected Laser": MMZero3ItemData(code=206, type=ItemClassification.useful),
+    "EX Skill: Soul Launcher": MMZero3ItemData(code=215, type=ItemClassification.useful),
+    "EX Skill: Orbit Shield": MMZero3ItemData(code=217, type=ItemClassification.useful),
+    "EX Skill: V-Shot": MMZero3ItemData(code=207, type=ItemClassification.useful),
+    "EX Skill: Gale Attack": MMZero3ItemData(code=210, type=ItemClassification.useful),
 
     # skipping 218-220 to stay clear of A+ rank clear location IDs)
 
@@ -280,6 +284,13 @@ item_data_table: Dict[str, MMZero3ItemData] = {
         can_create=lambda world, n="Shield Boomerang": n not in world.starting_weapons,
     ),
 
+    # Advances the Resistance Base's story state. Mostly just unlocks new NPC dialogue
+    "Story Progress": MMZero3ItemData(
+        code=228,
+        type=ItemClassification.progression,
+        count=2,
+    ),
+
     # Filler Items
     "100 Energy Crystals": MMZero3ItemData(
         code=301,
@@ -288,3 +299,13 @@ item_data_table: Dict[str, MMZero3ItemData] = {
 }
 
 item_table = {name: data.code for name, data in item_data_table.items() if data.code is not None}
+stage_access_names = [f"{stage} Access" for stage in stage_names]
+
+# Story Progress
+STORY_MID = 1   # Mission Set 2 NPCs dialogue
+STORY_LATE = 2  # Mission Set 4 NPCs dialogue
+
+secret_disk_names = [
+    name for name, data in item_data_table.items()
+    if data.code is not None and 1 <= data.code <= 180
+]
