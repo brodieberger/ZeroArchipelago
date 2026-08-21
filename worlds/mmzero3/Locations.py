@@ -286,6 +286,19 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Collect Recoil Rod": MMZero3LocationData(region="Resistance Base 1", address=226),
     "Collect Shield Boomerang": MMZero3LocationData(region="Resistance Base 1", address=227),
 
+    # Extra Lives
+    "Oceanic Highway Ruins (1) 1-UP": MMZero3LocationData(region="Oceanic Highway Ruins", address=231),
+    "Oceanic Highway Ruins (2) 1-UP": MMZero3LocationData(region="Oceanic Highway Ruins", address=232),
+    "Old Residential (1) 1-UP": MMZero3LocationData(region="Old Residential", address=233),
+    "Old Residential (2) 1-UP": MMZero3LocationData(region="Old Residential", address=234),
+    "Missile Factory 1-UP": MMZero3LocationData(region="Missile Factory", address=235),
+    "Forest of Anatre 1-UP": MMZero3LocationData(region="Forest of Anatre", address=236),
+    "Energy Facility 1-UP": MMZero3LocationData(region="Energy Facility", address=237),
+    "Snowy Plains 1-UP": MMZero3LocationData(region="Snowy Plains", address=238),
+    "Giant Elevator 1-UP": MMZero3LocationData(region="Giant Elevator", address=239),
+    "Sub Arcadia 1-UP": MMZero3LocationData(region="Sub Arcadia", address=240),
+    "Resistance Base 1-UP": MMZero3LocationData(region="Resistance Base 1", address=241),
+
 }
 
 location_table = {name: data.address for name, data in location_data_table.items() if data.address is not None}
