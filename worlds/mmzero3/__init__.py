@@ -196,7 +196,7 @@ class MMZero3World(World):
                  lambda state: state.has("Double Jump Foot Chip", self.player) and has_rod(state))
 
         # Collectable 1-UP spawns in the new room
-        add_rule(self.multiworld.get_location("Resistance Base 1-UP", self.player),
+        add_rule(self.multiworld.get_location("Resistance Base 1-UP: In Locked Room by Andrew", self.player),
                  lambda state: state.has("Secret Disk 120: New Room Near Andrew", self.player))
 
         # Completion condition
