@@ -67,7 +67,7 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Aegis Volcano Base (2) 102: 1st Box Inside": MMZero3LocationData(region="Aegis Volcano Base", address=102),
     "Aegis Volcano Base (3) 026: Platform Above First Room": MMZero3LocationData(region="Aegis Volcano Base", address=26),
     "Aegis Volcano Base (4) 114: Push 1st Container": MMZero3LocationData(region="Aegis Volcano Base", address=114),
-    "Aegis Volcano Base (5) 073: Push Continer Before Miniboss, Platform After": MMZero3LocationData(region="Aegis Volcano Base", address=73),
+    "Aegis Volcano Base (5) 073: Push Container Before Miniboss, Platform After": MMZero3LocationData(region="Aegis Volcano Base", address=73),
     "Aegis Volcano Base (6) 152: 10th Crossbyne Kill (Miniboss)": MMZero3LocationData(region="Aegis Volcano Base", address=152),
     "Aegis Volcano Base (7) 072: Lamplort Box": MMZero3LocationData(region="Aegis Volcano Base", address=72),
     "Aegis Volcano Base (8) 008: Top Gabyoall Box": MMZero3LocationData(region="Aegis Volcano Base", address=8),

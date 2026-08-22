@@ -178,7 +178,7 @@ class MMZero3World(World):
         # Location rules: Mobility required (Double Jump or Recoil Rod)
         for loc_name in [
             "Aegis Volcano Base (3) 026: Platform Above First Room",
-            "Aegis Volcano Base (5) 073: Push Continer Before Miniboss, Platform After",
+            "Aegis Volcano Base (5) 073: Push Container Before Miniboss, Platform After",
             "Old Residential Subtank: Top Left after Pantheon Bombers",
             "Forest of Anatre (7) 076: Above 9th Button",
             "Giant Elevator 1-UP: 1st Passage High Ledges"
