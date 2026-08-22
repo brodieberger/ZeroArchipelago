@@ -49,7 +49,15 @@ class MMZero3World(World):
     starting_weapons: set
 
     def generate_early(self) -> None:
-        if not self.options.randomize_weapons:
+        # Inform the Universal Tracker what the starting items are
+        passthrough = None
+        if hasattr(self.multiworld, "re_gen_passthrough"):
+            if "Mega Man Zero 3" in self.multiworld.re_gen_passthrough:
+                passthrough = self.multiworld.re_gen_passthrough["Mega Man Zero 3"]
+
+        if passthrough:
+            self.starting_weapons = set(passthrough["starting_weapons"])
+        elif not self.options.randomize_weapons:
             self.starting_weapons = set(("Buster", "Z-Saber", "Recoil Rod", "Shield Boomerang"))
         else:
             self.starting_weapons = set(self.options.starting_weapons.value)
@@ -211,3 +219,7 @@ class MMZero3World(World):
 
         #from Utils import visualize_regions
         #visualize_regions(self.multiworld.get_region("Menu", self.player), "my_world.puml")
+
+    @staticmethod
+    def interpret_slot_data(slot_data: Dict[str, Any]) -> Dict[str, Any]:
+        return slot_data
