@@ -310,6 +310,7 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Energy Facility Port Room 2: Reactor Core": MMZero3LocationData(region="Energy Facility", address=249),
     "Giant Elevator Miniboss: Spearook": MMZero3LocationData(region="Giant Elevator", address=250),
     "Sub Arcadia Miniboss: Phantom": MMZero3LocationData(region="Sub Arcadia", address=251),
+    "Aegis Volcano Base Miniboss: Crossbynes": MMZero3LocationData(region="Aegis Volcano Base", address=252),
 
 }
 
