@@ -1,6 +1,8 @@
-from typing import Callable, Dict, NamedTuple, Optional, Set, TYPE_CHECKING
+from typing import Callable, Dict, List, NamedTuple, Optional, Set, TYPE_CHECKING
 
 from BaseClasses import Location
+
+from . import Data
 
 if TYPE_CHECKING:
     from . import MMZero3World
@@ -312,6 +314,18 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Aegis Volcano Base Miniboss: Crossbynes": MMZero3LocationData(region="Aegis Volcano Base", address=252),
 }
 
+# Cerveau's shop
+# TODO maybe simplify the mechanics of this
+shop_location_names: List[str] = []
+for _slot in range(Data.AP_SHOP_SLOTS_MAX):
+    _name = f"Cerveau's Shop Slot {_slot + 1}"
+    shop_location_names.append(_name)
+    location_data_table[_name] = MMZero3LocationData(
+        region="Resistance Base 1",
+        address=Data.AP_SHOP_LOCATION_FIRST + _slot,
+        can_create=lambda world, slot=_slot: slot < world.options.shop_slots.value,
+    )
+
 # Location groups for `!hint` and tracker filtering.
 location_categories: Dict[str, range] = {
     "Secret Disks": range(1, 181),
@@ -322,6 +336,8 @@ location_categories: Dict[str, range] = {
     "Weapons": range(226, 228),
     "1-UPs": range(231, 241),
     "Minibosses": range(242, 253),
+    "Shop": range(Data.AP_SHOP_LOCATION_FIRST,
+                  Data.AP_SHOP_LOCATION_FIRST + Data.AP_SHOP_SLOTS_MAX),
 }
 
 

@@ -47,6 +47,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u16 requiredDisks;
         u8  startingWeapons;
         u8  easyExSkill;
+        u16 shopPriceBase;
+        u8  shopSlots;
     };
     """
     starting_weapons = 0
@@ -57,6 +59,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "requiredDisks": world.options.required_secret_disks.value,
         "startingWeapons": starting_weapons,
         "easyExSkill": 1 if world.options.easy_ex_skill.value else 0,
+        "shopPriceBase": world.options.shop_price_base.value,
+        "shopSlots": world.options.shop_slots.value,
     }
 
     seed_config = bytearray(Data.SEED_CONFIG_SIZE)

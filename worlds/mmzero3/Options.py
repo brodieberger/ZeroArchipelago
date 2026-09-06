@@ -30,9 +30,30 @@ class StartingWeapons(OptionSet):
     valid_keys = {"Buster", "Z-Saber", "Recoil Rod", "Shield Boomerang"}
     default = frozenset({"Buster", "Z-Saber"})
 
+class ShopSlots(Range):
+    """How many slots Cerveau's shop stocks."""
+    display_name = "Shop Slots"
+    range_start = 0
+    range_end = 48
+    default = 16
+
+
+class ShopPriceBase(Range):
+    """Price of the shop's first slot, in E-Crystals.
+
+    Each subsequent shop item cost gets the base price added onto it.
+    """
+    display_name = "Shop Price Base"
+    range_start = 10
+    range_end = 200
+    default = 100
+
+
 @dataclass
 class MMZero3Options(PerGameCommonOptions):
     required_secret_disks: RequiredSecretDisks
     easy_ex_skill: EasyExSkill
     starting_weapons: StartingWeapons
+    shop_slots: ShopSlots
+    shop_price_base: ShopPriceBase
     death_link: DeathLink
