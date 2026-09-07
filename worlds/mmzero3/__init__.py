@@ -54,6 +54,8 @@ class MMZero3World(World):
     starting_weapons: set
 
     def generate_early(self) -> None:
+        self.roll_shop_prices()
+
         # Inform the Universal Tracker what the starting items are
         passthrough = None
         if hasattr(self.multiworld, "re_gen_passthrough"):
@@ -145,6 +147,22 @@ class MMZero3World(World):
             "starting_weapons": sorted(self.starting_weapons),
             "death_link": self.options.death_link.value,
         }
+
+    ELF_PRICE_COSTS = (70, 100, 150, 200, 250, 300, 400, 500, 700)
+
+    def roll_shop_prices(self) -> None:
+        self.shop_prices = []
+        for _ in range(self.options.shop_slots.value):
+            price = self.random.choice(self.ELF_PRICE_COSTS)
+            price = price * self.options.shop_price_scale.value // 100
+            price = price // 10 * 10        # every vanilla elf cost is a round ten
+
+            if price < 10:
+                price = 10
+            if price > 9990:
+                price = 9990
+
+            self.shop_prices.append(price)
 
     def set_rules(self) -> None:
         def has_weapon_at(state, weapon: str, ability: str) -> bool:

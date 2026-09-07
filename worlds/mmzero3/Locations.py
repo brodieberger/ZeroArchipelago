@@ -316,14 +316,22 @@ location_data_table: Dict[str, MMZero3LocationData] = {
 
 # Cerveau's shop
 # TODO maybe simplify the mechanics of this
+def shop_slot_is_stocked(slot: int) -> Callable[["MMZero3World"], bool]:
+    """can_create for one shop slot: the seed stocks the first shop_slots of them."""
+    def can_create(world: "MMZero3World") -> bool:
+        return slot < world.options.shop_slots.value
+
+    return can_create
+
+
 shop_location_names: List[str] = []
-for _slot in range(Data.AP_SHOP_SLOTS_MAX):
-    _name = f"Cerveau's Shop Slot {_slot + 1}"
-    shop_location_names.append(_name)
-    location_data_table[_name] = MMZero3LocationData(
+for slot_number in range(Data.AP_SHOP_SLOTS_MAX):
+    shop_name = f"Cerveau's Shop Slot {slot_number + 1}"
+    shop_location_names.append(shop_name)
+    location_data_table[shop_name] = MMZero3LocationData(
         region="Resistance Base 1",
-        address=Data.AP_SHOP_LOCATION_FIRST + _slot,
-        can_create=lambda world, slot=_slot: slot < world.options.shop_slots.value,
+        address=Data.AP_SHOP_LOCATION_FIRST + slot_number,
+        can_create=shop_slot_is_stocked(slot_number),
     )
 
 # Location groups for `!hint` and tracker filtering.

@@ -38,14 +38,14 @@ class ShopSlots(Range):
     default = 16
 
 
-class ShopPriceBase(Range):
-    """Price of the shop's first slot, in E-Crystals.
+class ShopPriceScale(Range):
+    """How expensive Cerveau's shop is, as a percentage.
 
-    Each subsequent shop item cost gets the base price added onto it.
+    Items range from 70 to 700 eCrystals, with most being in the 100 to 300 range.
     """
-    display_name = "Shop Price Base"
-    range_start = 10
-    range_end = 200
+    display_name = "Shop Price Scale"
+    range_start = 25
+    range_end = 400
     default = 100
 
 
@@ -55,5 +55,5 @@ class MMZero3Options(PerGameCommonOptions):
     easy_ex_skill: EasyExSkill
     starting_weapons: StartingWeapons
     shop_slots: ShopSlots
-    shop_price_base: ShopPriceBase
+    shop_price_scale: ShopPriceScale
     death_link: DeathLink
