@@ -164,6 +164,9 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u16 requiredDisks;
         u8  startingWeapons;
         u8  easyExSkill;
+        u8  itemsanity;
+        u8  exLifeSanity;
+        u8  unused[2];
     };
 
     Theres also gApShopPrices, one u16 per shop slot: 
@@ -179,6 +182,9 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "requiredDisks": world.options.required_secret_disks.value,
         "startingWeapons": starting_weapons,
         "easyExSkill": 1 if world.options.easy_ex_skill.value else 0,
+        "itemsanity": 1 if world.options.itemsanity.value else 0,
+        "exLifeSanity": 1 if world.options.extra_life_sanity.value else 0,
+        "unused": 0,
     }
 
     seed_config = bytearray(Data.SEED_CONFIG_SIZE)
