@@ -31,9 +31,9 @@ class StartingWeapons(OptionSet):
     default = frozenset({"Buster", "Z-Saber"})
 
 class Itemsanity(Toggle):
-    """Makes every static energy capsule and E-Crystal pickup a location check (82 in total).
+    """Makes every static energy and E-Crystal pickup a location check (82 in total).
 
-    Unchecked ones are marked in game with a small Archipelago logo.
+    Unchecked items are displayed in game with the Archipelago logo floating above them.
     """
     display_name = "Itemsanity"
 
@@ -41,7 +41,7 @@ class Itemsanity(Toggle):
 class ExtraLifeSanity(DefaultOnToggle):
     """Makes every 1-UP pickup a location check (10 in total).
 
-    Unchecked ones are marked in game with the Archipelago logo.
+    Unchecked items are displayed in game with the Archipelago logo floating above them.
     """
     display_name = "Extra Life Sanity"
 
