@@ -245,6 +245,7 @@ class MMZero3World(World):
             "Weapons Repair Factory (2) 115: Hit 3rd Hammer",
             "Old Residential (1) 039: 1st Door",
             "Old Residential (3) 112: Floor Breakables",
+            "Old Residential Energy (6): Breakable Blocks by Bombers"
             "Forest of Anatre (8) 040: Breakables Below Boss Room",
             "Giant Elevator (2) 041: 1st Passage High Ledges",
             "Giant Elevator (6) 027: 1st Descent Bottom Left Breakable",

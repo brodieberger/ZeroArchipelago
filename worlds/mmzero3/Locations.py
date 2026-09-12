@@ -370,7 +370,7 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Old Residential E-Crystal (13): Top Left Pantheon Bombers": MMZero3LocationData(region="Old Residential", address=345, can_create=itemsanity_on), #mobility
     "Old Residential Energy (4): Climb after Miniboss": MMZero3LocationData(region="Old Residential", address=346, can_create=itemsanity_on),
     "Old Residential Energy (5): Before Top Right Secret Door": MMZero3LocationData(region="Old Residential", address=347, can_create=itemsanity_on),
-    "Old Residential Energy (6): Breakable Blocks by Bombers": MMZero3LocationData(region="Old Residential", address=348, can_create=itemsanity_on),
+    "Old Residential Energy (6): Breakable Blocks by Bombers": MMZero3LocationData(region="Old Residential", address=348, can_create=itemsanity_on), # rod
 
     "Missile Factory E-Crystal (1): Pit Under Ladder": MMZero3LocationData(region="Missile Factory", address=349, can_create=itemsanity_on),
     "Missile Factory E-Crystal (2): Pit Under Ladder": MMZero3LocationData(region="Missile Factory", address=350, can_create=itemsanity_on),
