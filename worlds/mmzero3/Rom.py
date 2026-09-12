@@ -186,7 +186,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u8  easyExSkill;
         u8  itemsanity;
         u8  exLifeSanity;
-        u8  unused[2];
+        u8  selectButton;
+        u8  unused;
     };
 
     Theres also gApShopPrices, one u16 per shop slot: 
@@ -204,6 +205,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "easyExSkill": 1 if world.options.easy_ex_skill.value else 0,
         "itemsanity": 1 if world.options.itemsanity.value else 0,
         "exLifeSanity": 1 if world.options.extra_life_sanity.value else 0,
+        "selectButton": world.options.select_button.value,
         "unused": 0,
     }
 
