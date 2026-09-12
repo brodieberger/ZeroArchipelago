@@ -1,3 +1,4 @@
+import json
 import os
 from typing import List, TYPE_CHECKING
 
@@ -5,9 +6,10 @@ import settings
 import Utils
 from BaseClasses import ItemClassification
 from settings import get_settings
-from worlds.Files import APProcedurePatch, APTokenMixin, APTokenTypes
+from worlds.Files import APPatchExtension, APProcedurePatch, APTokenMixin, APTokenTypes
 
 from . import Data
+from . import Palettes
 from .Locations import shop_location_names
 
 if TYPE_CHECKING:
@@ -35,6 +37,7 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     procedure = [
         ("apply_bsdiff4", ["basepatch.bsdiff4"]),
         ("apply_tokens", ["token_data.bin"]),
+        ("recolor_palettes", ["palettes.json"]),
     ]
 
     @classmethod
@@ -90,6 +93,25 @@ def wrap_text(text: str, cols: int, lines: int) -> List[str]:
     if line != "":
         out.append(line)
     return out[:lines]
+
+
+class MMZero3PatchExtensions(APPatchExtension):
+    game = "Mega Man Zero 3"
+
+    @staticmethod
+    def recolor_palettes(caller: APProcedurePatch, rom: bytes, rolls_file: str) -> bytes:
+        """Randomized level palettes"""
+        rolls = json.loads(caller.get_file(rolls_file).decode("utf-8"))
+        by_offset = {}
+        for stage_id, preset in rolls.items():
+            for offset, size in Data.STAGE_PALETTES[int(stage_id)]:
+                by_offset[offset] = (size, preset)
+
+        rom = bytearray(rom)
+        for offset, (size, preset) in by_offset.items():
+            rom[offset:offset + size] = Palettes.recolor(rom[offset:offset + size],
+                                                          Palettes.PRESETS[preset])
+        return bytes(rom)
 
 
 def shop_record(name_lines: List[str], player_lines: List[str], kind: int, code: int) -> bytes:
@@ -205,6 +227,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
     patch.write_token(APTokenTypes.WRITE, Data.SHOP_ITEMS_ROM_OFFSET, shop_item_records(world))
 
     patch.write_file("token_data.bin", patch.get_token_binary())
+
+    patch.write_file("palettes.json", json.dumps(world.stage_palettes).encode("utf-8"))
 
 
 class MMZero3Settings(settings.Group):

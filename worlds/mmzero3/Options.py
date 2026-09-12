@@ -46,6 +46,11 @@ class ExtraLifeSanity(DefaultOnToggle):
     display_name = "Extra Life Sanity"
 
 
+class RandomizedPalettes(Toggle):
+    """Every stage is drawn in a randomly chosen color scheme."""
+    display_name = "Randomized Palettes"
+
+
 class ShopSlots(Range):
     """How many slots Cerveau's shop stocks."""
     display_name = "Shop Slots"
@@ -72,6 +77,7 @@ class MMZero3Options(PerGameCommonOptions):
     starting_weapons: StartingWeapons
     itemsanity: Itemsanity
     extra_life_sanity: ExtraLifeSanity
+    randomized_palettes: RandomizedPalettes
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
     death_link: DeathLink

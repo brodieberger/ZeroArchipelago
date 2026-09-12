@@ -64,6 +64,9 @@ Cerveau now has a shop. Reachable by pressing L or R on his secret disk analysis
   The game's 82 static life capsules and E-Crystals become location checks. Unchecked ones
   display in game with the Archipelago logo.
 
+- `randomized_palettes`:  
+  Every stage is drawn in a randomly chosen color scheme.
+
 - `shop_slots` / `shop_price_scale`:  
   How many slots Cerveau's shop has (default 16, max 48) and how expensive they are, as a percentage.
 

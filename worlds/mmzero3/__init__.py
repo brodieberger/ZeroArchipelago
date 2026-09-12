@@ -13,6 +13,7 @@ from .Locations import (MMZero3Location, location_data_table, location_name_grou
 from .Options import MMZero3Options
 from .Regions import region_data_table
 from .Rom import MMZero3ProcedurePatch, MMZero3Settings, write_tokens
+from . import Data, Palettes
 from .Client import MMZero3Client
 
 import pkgutil
@@ -56,6 +57,7 @@ class MMZero3World(World):
 
     def generate_early(self) -> None:
         self.roll_shop_prices()
+        self.roll_palettes()
 
         # Inform the Universal Tracker what the starting items are
         passthrough = None
@@ -176,6 +178,14 @@ class MMZero3World(World):
         """add_rule, but skips a location disabled by seed's options."""
         if location_data_table[loc_name].can_create(self):
             add_rule(self.multiworld.get_location(loc_name, self.player), rule)
+
+    def roll_palettes(self) -> None:
+        """Decide on the palette preset that each stage will be drawn on."""
+        self.stage_palettes = {}
+        if not self.options.randomized_palettes.value:
+            return
+        for stage_id in Data.STAGE_PALETTES:
+            self.stage_palettes[stage_id] = self.random.choice(list(Palettes.PRESETS))
 
     def set_rules(self) -> None:
         def has_weapon_at(state, weapon: str, ability: str) -> bool:
