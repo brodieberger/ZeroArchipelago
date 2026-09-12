@@ -65,9 +65,6 @@ def encode_text(text: str, cols: int) -> bytes:
 
 
 def wrap_text(text: str, cols: int, lines: int) -> List[str]:
-    out = []
-    line = ""
-
     words = []
     for word in text.split():
         while len(word) > cols:
@@ -75,24 +72,25 @@ def wrap_text(text: str, cols: int, lines: int) -> List[str]:
             word = word[cols:]
         words.append(word)
 
+    out = []
+    line = ""
     for word in words:
-        if line == "":
-            longer = word
-        else:
-            longer = line + " " + word
-
+        longer = word if line == "" else line + " " + word
         if len(longer) <= cols:
             line = longer
         else:
             out.append(line)
             line = word
-
-        if len(out) == lines:
-            return out
-
     if line != "":
         out.append(line)
-    return out[:lines]
+
+    if len(out) > lines:
+        out = out[:lines]
+        last = out[-1]
+        if len(last) + 3 > cols:
+            last = last[:cols - 3].rstrip()
+        out[-1] = last + "..."
+    return out
 
 
 class MMZero3PatchExtensions(APPatchExtension):
