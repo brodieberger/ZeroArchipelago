@@ -245,7 +245,7 @@ class MMZero3World(World):
             "Weapons Repair Factory (2) 115: Hit 3rd Hammer",
             "Old Residential (1) 039: 1st Door",
             "Old Residential (3) 112: Floor Breakables",
-            "Old Residential Energy (6): Breakable Blocks by Bombers"
+            "Old Residential Energy (6): Breakable Blocks by Bombers",
             "Forest of Anatre (8) 040: Breakables Below Boss Room",
             "Giant Elevator (2) 041: 1st Passage High Ledges",
             "Giant Elevator (6) 027: 1st Descent Bottom Left Breakable",
@@ -299,7 +299,7 @@ class MMZero3World(World):
         ]:
             self.add_location_rule(
                 loc_name,
-                lambda state: state.has("Secret Disk 005: Splash Foot Chip", self.player) or has_mobility(state))
+                lambda state: state.has("Disk 005: Splash Foot Chip", self.player) or has_mobility(state))
 
         # Technically reachable without
         self.add_location_rule("Missile Factory Energy (2): Missile Top Right",
@@ -311,7 +311,7 @@ class MMZero3World(World):
 
         # Collectable 1-UP spawns in the new room
         self.add_location_rule("Resistance Base 1-UP: In Locked Room by Andrew",
-                               lambda state: state.has("Secret Disk 120: New Room Near Andrew", self.player))
+                               lambda state: state.has("Disk 120: New Room Near Andrew", self.player))
 
         # Completion condition
         self.multiworld.completion_condition[self.player] = lambda state: state.has("Victory", self.player)
