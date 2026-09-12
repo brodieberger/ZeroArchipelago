@@ -262,12 +262,12 @@ class MMZero3World(World):
         # Location rules: Mobility required (Double Jump or Recoil Rod)
         for loc_name in [
             "Aegis Volcano Base (3) 026: Platform Above First Room",
-            "Aegis Volcano Base (5) 073: Push Container Before Miniboss, Platform After",
-            "Old Residential Subtank: Top Left after Pantheon Bombers",
+            "Aegis Volcano Base (5) 073: Platform After Pushed Container",
+            "Old Residential Subtank: Top Left Past Bombers",
             "Forest of Anatre (7) 076: Above 9th Button",
             "Giant Elevator 1-UP: 1st Passage High Ledges",
             "Aegis Volcano Base Energy: Platform Above First Room",
-            "Old Residential E-Crystal (13): Top Left Pantheon Bombers",
+            "Old Residential E-Crystal (13): Top Left Past Bombers",
         ]:
             self.add_location_rule(loc_name, has_mobility)
 
@@ -281,9 +281,9 @@ class MMZero3World(World):
             "Forest of Anatre 1-UP: In Tree Near Start",
             "Old Residential E-Crystal (1): Stump Door",
             "Old Residential Energy (1): Stump Door",
-            "Old Residential E-Crystal (4): Covered Door after Cutscene",
-            "Old Residential E-Crystal (5): Covered Door after Cutscene",
-            "Old Residential E-Crystal (6): Covered Door after Cutscene",
+            "Old Residential E-Crystal (4): Door after Cutscene",
+            "Old Residential E-Crystal (5): Door after Cutscene",
+            "Old Residential E-Crystal (6): Door after Cutscene",
             "Forest of Anatre Energy (1): Treetops Above Generator Cannon",
         ]:
             self.add_location_rule(loc_name, has_flame)
@@ -292,14 +292,14 @@ class MMZero3World(World):
         self.add_location_rule("Old Residential (2) 001: Stump Door",
                                lambda state: has_flame(state) and has_rod(state))
 
-        # Mobility OR Splash Foot Chip
+        # Mobility OR Splash Jump Foot Chip
         for loc_name in [
             "Frontline Ice Base (1) 066: Top Route Tower",
             "Frontline Ice Base Energy: Top Route Tower",
         ]:
             self.add_location_rule(
                 loc_name,
-                lambda state: state.has("Disk 005: Splash Foot Chip", self.player) or has_mobility(state))
+                lambda state: state.has("Disk 005: Splash Jump Foot Chip", self.player) or has_mobility(state))
 
         # Technically reachable without
         self.add_location_rule("Missile Factory Energy (2): Missile Top Right",
