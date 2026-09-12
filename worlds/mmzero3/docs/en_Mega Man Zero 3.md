@@ -34,8 +34,8 @@ The upgrade progress is shown in game as stars in the pause menu, like in Zero 1
 
 Note: Anything you list in `starting_weapons`  begins at step 1. You will still have to collect the progressive items in order to upgrade it.
 
-## Weapon Progression
-Cerveau now has a shop. Reachable by pressing L or R on his secret disk analysis screen. Items are purchasable by using e-Crystals. Prices and amount of items are configurable using YAML options.
+## Cerveau Shop
+Cerveau now has a shop, visit it by pressing L or R on his secret disk analysis screen. Items are purchasable by using e-Crystals. Prices and amount of items are configurable using YAML options.
 
 ## Quality of Life Stuff
 - The pause menu shows you how many secret disks are required to collect in order to unlock the final stage.
