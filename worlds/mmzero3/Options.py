@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Options import (Choice, Range, Toggle, DefaultOnToggle, OptionSet, DeathLink, OptionGroup,
+from Options import (Choice, Range, Toggle, DefaultOnToggle, OptionSet, DeathLink, OptionGroup, StartInventoryPool,
                      PerGameCommonOptions)
 
 from . import Data
@@ -61,6 +61,20 @@ class SelectButton(Choice):
     option_cycle_foot_chip = Data.AP_SELECT_CYCLE_FOOT_CHIP
     option_use_subtank = Data.AP_SELECT_USE_SUBTANK
     default = option_cycle_sub_weapon
+
+
+class CyberElves(Choice):
+    """Modifications to Cyber Elf usage. Satellite elves remain unmodified.
+
+    Vanilla: Unmodified Vanilla. Upgrading elves cost eCrystals, fusion elves decrease rank.
+    No Penalty: Fusing an elf does not affect rank.
+    Auto: Every passive elf received via disk is automatically opened and applied. Does not affect rank. Gives the game a nice sense of progresion, but makes it a lot easier.
+    """
+    display_name = "Cyber-elves"
+    option_vanilla = Data.AP_ELVES_VANILLA
+    option_no_penalty = Data.AP_ELVES_NO_PENALTY
+    option_auto = Data.AP_ELVES_AUTO
+    default = option_vanilla
 
 
 class WeaponDamageUpgrades(DefaultOnToggle):
@@ -130,6 +144,8 @@ class MMZero3Options(PerGameCommonOptions):
     randomized_palettes: RandomizedPalettes
     select_button: SelectButton
     weapon_damage_upgrades: WeaponDamageUpgrades
+    cyber_elves: CyberElves
+    start_inventory_from_pool: StartInventoryPool
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
     death_link: DeathLink

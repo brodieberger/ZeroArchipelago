@@ -188,6 +188,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u8  exLifeSanity;
         u8  selectButton;
         u8  damageUpgrades;
+        u8  cyberElves;
+        u8  unused[3];
     };
 
     Theres also gApShopPrices, one u16 per shop slot: 
@@ -207,6 +209,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "exLifeSanity": 1 if world.options.extra_life_sanity.value else 0,
         "selectButton": world.options.select_button.value,
         "damageUpgrades": 1 if world.options.weapon_damage_upgrades.value else 0,
+        "cyberElves": world.options.cyber_elves.value,
+        "unused": 0,
     }
 
     seed_config = bytearray(Data.SEED_CONFIG_SIZE)
