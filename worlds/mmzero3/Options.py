@@ -93,6 +93,15 @@ class RandomizedPalettes(Toggle):
     display_name = "Randomized Palettes"
 
 
+class DiskNamePopup(DefaultOnToggle):
+    """
+    When a Secret Disk arrives from Archipelago, a message box prints its contents.
+
+    The visual is slightly screen obscuring, so it is kept optional.
+    """
+    display_name = "Disk Name Popup"
+
+
 class ShopSlots(Range):
     """How many slots Cerveau's shop stocks."""
     display_name = "Shop Slots"
@@ -130,6 +139,7 @@ mmzero3_option_groups = [
     ]),
     OptionGroup("Aesthetics", [
         RandomizedPalettes,
+        DiskNamePopup,
     ]),
 ]
 
@@ -145,6 +155,7 @@ class MMZero3Options(PerGameCommonOptions):
     select_button: SelectButton
     weapon_damage_upgrades: WeaponDamageUpgrades
     cyber_elves: CyberElves
+    disk_name_popup: DiskNamePopup
     start_inventory_from_pool: StartInventoryPool
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
