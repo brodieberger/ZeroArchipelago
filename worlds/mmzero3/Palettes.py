@@ -54,7 +54,7 @@ STAGE_THEMES = {
     10: ["desert", "dusk"],             # Area X-2
     11: ["snowy", "desert", "dusk"],    # Energy Facility
     12: ["desert", "dusk"],             # Snowy Plains
-    13: ["desert", "dusk"],    # Sunken Library
+    13: ["desert", "dusk"],             # Sunken Library
     14: ["dusk"],                       # Giant Elevator
     15: ["snowy", "desert", "dusk"],    # Sub Arcadia
     16: ["snowy", "desert", "dusk"],    # Abandoned Research Laboratory
