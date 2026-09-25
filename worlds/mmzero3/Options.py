@@ -102,6 +102,10 @@ class DiskNamePopup(DefaultOnToggle):
     display_name = "Disk Name Popup"
 
 
+class InfiniteLives(Toggle):
+    display_name = "Infinite Lives"
+
+
 class ShopSlots(Range):
     """How many slots Cerveau's shop stocks."""
     display_name = "Shop Slots"
@@ -136,6 +140,7 @@ mmzero3_option_groups = [
         SelectButton,
         CyberElves,
         EasyExSkill,
+        InfiniteLives,
         DeathLink,
     ]),
     OptionGroup("Aesthetics", [
@@ -157,6 +162,7 @@ class MMZero3Options(PerGameCommonOptions):
     weapon_damage_upgrades: WeaponDamageUpgrades
     cyber_elves: CyberElves
     disk_name_popup: DiskNamePopup
+    infinite_lives: InfiniteLives
     start_inventory_from_pool: StartInventoryPool
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
