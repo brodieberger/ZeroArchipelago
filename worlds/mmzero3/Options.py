@@ -24,13 +24,13 @@ class ExSkillRank(Choice):
     The rank is for the mission just finished, not your overall rank. F sends the check on any clear.
     """
     display_name = "EX Skill Rank"
-    option_f = Data.RANK_F
-    option_e = Data.RANK_E
-    option_d = Data.RANK_D
-    option_c = Data.RANK_C
-    option_b = Data.RANK_B
-    option_a = Data.RANK_A
     option_s = Data.RANK_S
+    option_a = Data.RANK_A
+    option_b = Data.RANK_B
+    option_c = Data.RANK_C
+    option_d = Data.RANK_D
+    option_e = Data.RANK_E
+    option_f = Data.RANK_F
     default = Data.RANK_A
 
 
@@ -41,13 +41,13 @@ class FinalStageRank(Choice):
     None means no stage has to be cleared at all, and the final stage opens as soon as you hold the required secret disks.
     """
     display_name = "Final Stage Rank"
-    option_f = Data.RANK_F
-    option_e = Data.RANK_E
-    option_d = Data.RANK_D
-    option_c = Data.RANK_C
-    option_b = Data.RANK_B
-    option_a = Data.RANK_A
     option_s = Data.RANK_S
+    option_a = Data.RANK_A
+    option_b = Data.RANK_B
+    option_c = Data.RANK_C
+    option_d = Data.RANK_D
+    option_e = Data.RANK_E
+    option_f = Data.RANK_F
     option_none = Data.AP_FINAL_RANK_NONE
     default = Data.RANK_F
 
