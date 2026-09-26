@@ -35,10 +35,10 @@ class ExSkillRank(Choice):
 
 
 class FinalStageRank(Choice):
-    """The rank every other stage's best clear must reach before the final stage opens. That rank or better counts.
+    """The rank you need to get on each stage for the final stage to open, in addition to the required disks.
 
     F means that clearing each stage will automatically unlock the boss.
-    None means no stage has to be cleared at all: the final stage opens as soon as you hold the required secret disks.
+    None means no stage has to be cleared at all, and the final stage opens as soon as you hold the required secret disks.
     """
     display_name = "Final Stage Rank"
     option_f = Data.RANK_F
