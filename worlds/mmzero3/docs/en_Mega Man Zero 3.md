@@ -1,13 +1,15 @@
 # Mega Man Zero 3 Archipelago
 
-Welcome to my project. Things are still under development, but here you will find my development of a custom Archipelago World for Mega Man Zero 3 on the GBA. You should probably read everything here so you know what to expect before playing!
+Thank you for checking out my project! Here you will find my development of a custom Archipelago World for Mega Man Zero 3 on the GBA. You should probably read everything here so you know what to expect before playing!
+
+There's a PopTracker pack for this world made by ambibii. [Get it here!](https://github.com/ambibii/mmz3-poptracker/releases/latest)
 
 <div align="center">
 <img width="800" height="296" alt="logo" src="https://github.com/user-attachments/assets/0954b2d4-f197-4c53-8bff-699af4b382a5" />
 </div>
 
 ## General Information (IMPORTANT)
-- **Locations:** All 180 secret disks, stage clears, an A+ rank clear in each of the 15 stages, the nine armor chips, both sub tanks, Cerveau's Recoil Rod and Shield Boomerang, ten extra life pickups, and eleven miniboss fights.
+- **Locations:** All 180 secret disks, stage clears, an A+ rank clear in each of the 15 stages, the nine armor chips, both sub tanks, Cerveau's Recoil Rod and Shield Boomerang, and eleven miniboss fights. Optionally 10 extra life pickups, 82 itemsanity items, and a configurable number of shop slots.
 - **Item pool:** 180 secret disks, the four weapons as progressive upgrade unlocks, nine armor chips, twelve EX Skills, two sub tanks, fifteen stage access items and two Story Progress items. E-Crystals are filler.
 - There's a modified mission select screen, which allows you to select from any level as long as you have its access item.
   - Boss portraits are in groups of four like in vanilla, but now you can tab between the pages with left and right on the d-pad (the shoulder buttons work too).
@@ -42,7 +44,7 @@ Cerveau now has a shop, visit it by pressing L or R on his secret disk analysis 
 - All skippable cutscenes are skippable by default.
 - You can leave any level at any time.
 - Pressing SELECT during gameplay does one thing of your choosing. By default it swaps sub weapons, configurable by an option.
-- When Archipelago gives you an item, a small icon pops up over Zero's head with a unique icon displayed for each item, and for a secret disk the game's own message box names it along the bottom of the screen for a moment.
+- When Archipelago gives you an item, a small icon pops up over Zero's head with a unique icon displayed for each item, and for a secret disk the game's own message box describes it along the bottom of the screen.
 - Collecting certain lore related secret disks will simultaneously unlock a random e-Reader graphical change. A full list can be seen [here](https://tcrf.net/Mega_Man_Zero_3/e-Reader_Functions).
 - Your player rank is based on the average of your best clear in each stage.
 - Pressing select on the secret disk analysis screen will open all of the disks that you own.
@@ -80,12 +82,11 @@ Cerveau now has a shop, visit it by pressing L or R on his secret disk analysis 
   - No Penalty: Fusing an elf does not affect rank.
   - Auto: Every passive elf received via disk is automatically opened and applied. Does not affect rank. Gives the game a nice sense of progresion, but makes it a lot easier.
 
-
 - `infinite_lives`:  
   Infinite Lives.
 
 - `disk_name_popup`:  
-  On by default. When a Secret Disk arrives from Archipelago, a small message box names it for a moment. Every other item is obvious in game.
+  On by default. When a Secret Disk arrives from Archipelago, a small message box appears to describe it.
 
 - `randomized_palettes`:  
   Every stage is drawn in a randomly chosen color scheme.
@@ -121,7 +122,7 @@ For example: `!hint Stage Access` or `!missing Sub Arcadia`.
 - I hope to soon bring this world from unstable to stable, so report anything that seems off, not just bugs!
   
 ## Planned Features.
-- A weapon wheel on SELECT for swapping chips and weapons without opening the menu. Right now it just cycles sub weapons.
+- A weapon wheel on SELECT for swapping chips and weapons without opening the menu. Right now you can only select one at once.
 - Breakable containers and other collectables as location checks.
 - Level geometry, enemy, or entrance randomization.
   - Enemy Randomization is currently being worked on.
