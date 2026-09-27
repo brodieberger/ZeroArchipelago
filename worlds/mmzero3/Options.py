@@ -153,6 +153,24 @@ class ShopPriceScale(Range):
     range_end = 400
     default = 100
 
+class TrapPercentage(Range):
+    """The percentage of filler items that are replaced with traps."""
+    display_name = "Trap Percentage"
+    range_start = 0
+    range_end = 100
+    default = 0
+
+
+class EnabledTraps(OptionSet):
+    """
+    Which traps may be placed. Right now, all are currently visual only.
+    Valid Keys: {"Earthquake", "Pixelate", "Slippery Floor"}
+    """
+    display_name = "Enabled Traps"
+    valid_keys = {"Earthquake", "Pixelate", "Slippery Floor"}
+    default = frozenset(valid_keys)
+
+
 mmzero3_option_groups = [
     OptionGroup("Goal Options", [
         RequiredSecretDisks,
@@ -172,6 +190,10 @@ mmzero3_option_groups = [
         ExSkillRank,
         InfiniteLives,
         DeathLink,
+    ]),
+    OptionGroup("Traps", [
+        TrapPercentage,
+        EnabledTraps,
     ]),
     OptionGroup("Aesthetics", [
         RandomizedPalettes,
@@ -197,4 +219,6 @@ class MMZero3Options(PerGameCommonOptions):
     start_inventory_from_pool: StartInventoryPool
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
+    trap_percentage: TrapPercentage
+    enabled_traps: EnabledTraps
     death_link: DeathLink

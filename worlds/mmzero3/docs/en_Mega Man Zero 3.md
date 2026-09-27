@@ -85,6 +85,9 @@ Cerveau now has a shop, visit it by pressing L or R on his secret disk analysis 
 - `infinite_lives`:  
   Infinite Lives.
 
+- `trap_percentage`:  
+  The percentage of filler items replaced with traps. Default 0. `enabled_traps` picks which ones may appear (all three by default), for example `enabled_traps: ['Earthquake', 'Slippery Floor']`. Currently implemented traps are Earthquake, Pixelate, and Slippery Floor.
+
 - `disk_name_popup`:  
   On by default. When a Secret Disk arrives from Archipelago, a small message box appears to describe it.
 
@@ -111,7 +114,7 @@ Items and locations are sorted into groups. Try using `!hint`.
 
 | items | |
 | --- | --- |
-| by type | `Secret Disks`, `Stage Access`, `Chips`, `Body Chips`, `Foot Chips`, `Head Chips`, `EX Skills`, `Subtanks`, `Weapons` |
+| by type | `Secret Disks`, `Stage Access`, `Chips`, `Body Chips`, `Foot Chips`, `Head Chips`, `EX Skills`, `Subtanks`, `Weapons`, `Traps` |
 
 For example: `!hint Stage Access` or `!missing Sub Arcadia`.
 

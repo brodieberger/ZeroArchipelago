@@ -147,6 +147,9 @@ class MMZero3World(World):
             self.get_location(location_name).place_locked_item(locked_item)
 
     def get_filler_item_name(self) -> str:
+        traps = sorted(self.options.enabled_traps.value)
+        if traps and self.random.randrange(100) < self.options.trap_percentage.value:
+            return f"{self.random.choice(traps)} Trap"
         return "100 Energy Crystals"
     
     def fill_slot_data(self) -> Dict[str, Any]:
