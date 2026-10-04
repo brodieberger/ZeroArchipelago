@@ -85,6 +85,12 @@ Cerveau now has a shop, visit it by pressing L or R on his secret disk analysis 
 - `infinite_lives`:  
   Infinite Lives.
 
+- `randomize_enemies`:  
+    Randomize each enemy spawn location. Also includes the spawning of mettaur and Battle Network 3 enemies!
+    If an enemy is randomized into a position where the occupant in the vanilla game would have more health, then multiple enemies would be set to spawn there.
+    So expect a lot of chaos!
+    WARNING: VERY EARLY WORK IN PROGRESS. DO NOT TAKE INTO BIG MULTIWORLDS!
+
 - `trap_percentage`:  
   The percentage of filler items replaced with traps. Default 0. `enabled_traps` picks which ones may appear (all three by default), for example `enabled_traps: ['Earthquake', 'Slippery Floor']`. Currently implemented traps are Earthquake, Pixelate, and Slippery Floor.
 
@@ -127,8 +133,7 @@ For example: `!hint Stage Access` or `!missing Sub Arcadia`.
 ## Planned Features.
 - A weapon wheel on SELECT for swapping chips and weapons without opening the menu. Right now you can only select one at once.
 - Breakable containers and other collectables as location checks.
-- Level geometry, enemy, or entrance randomization.
-  - Enemy Randomization is currently being worked on.
+- Level geometry or entrance randomization.
 - Option to change the rank required to earn an Ex Skill check (higher or lower).
 - Something to do with the minigames.
 

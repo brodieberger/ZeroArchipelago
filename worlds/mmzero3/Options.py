@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from Options import (Choice, Range, Toggle, DefaultOnToggle, OptionSet, DeathLink, OptionGroup, StartInventoryPool,
-                     PerGameCommonOptions)
+                     PerGameCommonOptions, Visibility)
 
 from . import Data
 
@@ -122,6 +122,27 @@ class RandomizedPalettes(Toggle):
     display_name = "Randomized Palettes"
 
 
+class RandomizeEnemies(Toggle):
+    """
+    Randomize each enemy spawn location.
+    WARNING: VERY EARLY WORK IN PROGRESS. DO NOT TAKE INTO BIG MULTIWORLDS!
+    """
+    display_name = "Randomize Enemies"
+
+
+class DebugEnemyDifficulty(Choice):
+    """
+    Place more enemies in the spot for one, based off of the health of the spot being replaced.
+    Needs more work. Currently left at chaos mode.
+    """
+    display_name = "DEBUG: Enemy Difficulty"
+    visibility = Visibility.none
+    option_normal = 0
+    option_chaos = 1
+    option_debug = 2
+    default = 1
+
+
 class DiskNamePopup(DefaultOnToggle):
     """
     When a Secret Disk arrives from Archipelago, a message box prints its contents.
@@ -189,6 +210,7 @@ mmzero3_option_groups = [
         CyberElves,
         ExSkillRank,
         InfiniteLives,
+        RandomizeEnemies,
         DeathLink,
     ]),
     OptionGroup("Traps", [
@@ -216,6 +238,8 @@ class MMZero3Options(PerGameCommonOptions):
     cyber_elves: CyberElves
     disk_name_popup: DiskNamePopup
     infinite_lives: InfiniteLives
+    randomize_enemies: RandomizeEnemies
+    debug_enemy_difficulty: DebugEnemyDifficulty
     start_inventory_from_pool: StartInventoryPool
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
