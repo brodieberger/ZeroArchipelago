@@ -41,6 +41,13 @@ ICE_BLOCK = 63       # the Ice Base ice block, a platform
 # Hammers must be in their vanilla spots since you push them to reach items, but can still appear elsewhere.
 # Deathlocks are a WIP
 HAMMER, DEATHLOCK = 21, 55
+CHUTE = (DEATHLOCK, 8)
+# Riders can ride on moving platforms, fallers are affected by gravity and can be placed into the chutes on WR factory.
+RIDERS = {0, 14, 30, 62, 64}    # Pantheon Guardian, Top Gabyoall, Beetank, Shotloid, Pantheon Fist
+# Spdiers on the top of the sunken library ceilings. They are actually not attached to anything since the camera doesn't scroll up there,
+# but they can still have certain ceiling enemies placed on them. So place heavy cannons there.
+SCREEN_TOP_CEILINGS = {(13, 28), (13, 31), (13, 32), (13, 35), (13, 40)}
+FALLERS = ((48, 0, 0), (62, 0, 0), (67, 0, 0))
 
 # how many points back a point looks to avoid repeating an enemy.
 NEIGHBORS = 4       
@@ -53,6 +60,8 @@ PACK_MAX = 3
 COMPANION = 0x40
 DENSITY_WINDOW, DENSITY_CAP = 15, 10
 UNKILLABLE_TOUGHNESS = 6 # Rating for unkillable enemies.
+# The max number of stages one single enemy is allowed to be placed into.
+MAX_STAGES = 4
 
 MARK_SHIFT = 2
 NO_ENEMY = 0xFFFF
@@ -248,7 +257,16 @@ def placements(stage_id: int, candidate: int, point: dict, spots=None) -> list:
         return fits
     if candidate == ICEBON and point["enemy_id"] not in (ICEBON, *D.SWIMMERS):
         return fits
+    platform = (stage_id, point["index"]) in D.ON_PLATFORM
+    if platform and candidate not in RIDERS:
+        return fits
     for dx, dy, standable_as, room_below, room_above in spots or point["spots"]:
+        if platform:
+            if (dx, dy) != (0, 0):
+                continue
+            standable_as = ("FLOOR",)
+        if candidate == HEAVY and (dx, dy) == (0, 0) and (stage_id, point["index"]) in SCREEN_TOP_CEILINGS:
+            standable_as = standable_as + ("CEILING",)
         if (candidate == D.PILLAR["enemy"] and needs_pillar(point, (dx, dy))
                 and (room_below > D.PILLAR["floor"] or not point["pillar_room"])):
             continue
@@ -269,8 +287,9 @@ def placements(stage_id: int, candidate: int, point: dict, spots=None) -> list:
     return fits
 
 
-def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float) -> dict:
-    """Randomize one stage's enemies."""
+def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
+                    full: Set[int] = frozenset()) -> dict:
+    """Randomize one stage's enemies. `full` are the enemies already in MAX_STAGES stages."""
     stage = D.STAGES[stage_id]
     templates = stage["enemy_templates"]
     vanilla_rows = stage["preload_rows"]
@@ -314,23 +333,60 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
 
     # 1. swap the sprite sheets, try the enemies that have replaced the fewest so far first
     replacement_for: Dict[int, int] = {}
+    kept = {enemy for enemy in sorted(placed_here - made_here)
+            if enemy in D.SWIMMERS and rng.random() < 0.5}
+
+    def needed_cells(point, enemy):
+        """For certain enemies that do not move horizontally."""
+        cells = loaded(vanilla_rows, motion(point["enemy_id"]))
+        if enemy == ICEBON:
+            near = D.ICEBON_AREAS.get((stage_id, point["index"]))
+        elif enemy == HEAVY:
+            near = D.HEAVY_AREAS[(stage_id, point["index"])]
+        else:
+            near = None
+        if near is not None:
+            return {cell for cell in cells if cell[0] in near}
+        return cells
+
+    def water_cover(point):
+        """Water enemies to water enemies."""
+        if point["enemy_id"] not in D.SWIMMERS:
+            return False
+        swapped = {motion(old): motion(new) for old, new in replacement_for.items()}
+        rows_now = [(swapped.get(row[0], row[0]), *row[1:]) for row in vanilla_rows]
+        for enemy in kept | {ICEBON} | set(replacement_for.values()):
+            fits = placements(stage_id, enemy, point)
+            if (fits and (enemy == ICEBON or any(swims(variant) for variant, _offset in fits))
+                    and all(needed_cells(point, enemy) <= loaded(rows_now, sheet) for sheet in sheets_of(enemy))):
+                return True
+        return False
+
     for old_enemy in sorted(placed_here - made_here):
-        if old_enemy in (HEAVY, ICEBON):
+        if old_enemy in (HEAVY, ICEBON) or old_enemy in kept:
             continue    
         own_points = [point for point in points if point["enemy_id"] == old_enemy]
         if not all(point["free"] for point in own_points):
             continue
-        old_palettes = D.MOTIONS[motion(old_enemy)][1]
+        old_size, old_palettes = D.MOTIONS[motion(old_enemy)]
         options = []
         for candidate in CANDIDATES:
-            if (motion(candidate) not in sheets_here
-                    and not loaded(vanilla_rows, motion(candidate))
-                    & loaded(vanilla_rows, motion(old_enemy))
+            if candidate in full:
+                continue
+            extras = sheets_of(candidate)[1:]
+            if (all(sheet not in sheets_here
+                    and not loaded(vanilla_rows, sheet) & loaded(vanilla_rows, motion(old_enemy))
+                    for sheet in sheets_of(candidate))
                     and candidate not in replacement_for.values()
-                    and not D.SPECIES[candidate]["sheets"]   # excludes enemies needing a second sheet
-                    and (old_enemy not in D.SWIMMERS or candidate in D.SWIMMERS)
+                    and (not extras or (sum(D.MOTIONS[sheet][0] for sheet in sheets_of(candidate)) <= old_size
+                                        and all(palette_group(sheet) is not None
+                                                and palette_group(sheet) == palette_group(motion(candidate))
+                                                for sheet in extras)))
+                    and (old_enemy not in D.SWIMMERS
+                         or any(swims(variant) for variant in D.VARIANTS if variant[0] == candidate))
                     and D.MOTIONS[motion(candidate)][1] <= old_palettes
-                    and all(placements(stage_id, candidate, point) for point in own_points)
+                    and all(placements(stage_id, candidate, point) or water_cover(point)
+                            for point in own_points)
                     and room_for(old_enemy, candidate, replacement_for)):
                 options.append(candidate)
         if options:
@@ -342,7 +398,6 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
 
     replacement_sheet = {motion(old): motion(new) for old, new in replacement_for.items()}
     rows = [(replacement_sheet.get(row[0], row[0]), *row[1:]) for row in vanilla_rows]
-
 
     # 2. Palette slot merging: 
     def taken(cell, leaving=None):
@@ -358,6 +413,14 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
             for slot in range(row[3], row[3] + palette_count):
                 palettes[slot] = group if palettes.get(slot, group) == group else None
         return tiles, palettes
+
+    def row_shape(cells):
+        area_mask = bits_05 = bits_06 = 0
+        for area, mode in cells:
+            area_mask |= 1 << area
+            bits_05 |= MODES[mode][0]
+            bits_06 |= MODES[mode][1]
+        return area_mask, bits_05, bits_06, loaded([(0, area_mask, 0, 0, bits_05, bits_06, 0)], 0)
 
     def palette_slot(sheet, cells, leaving=None):
         """Returns the palette slot that the sheet can load into."""
@@ -389,16 +452,55 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
         if moving > staying:
             rows[index] = (*row[:3], slot, *row[4:])
 
+    for old_enemy, new_enemy in replacement_for.items():
+        offset = D.MOTIONS[motion(new_enemy)][0]
+        for sheet in sheets_of(new_enemy)[1:]:
+            rows += [(sheet, row[1], row[2] + offset, *row[3:6], CYBER.get(sheet, 0))
+                     for vanilla_row, row in zip(vanilla_rows, rows) if vanilla_row[0] == motion(old_enemy)]
+            offset += D.MOTIONS[sheet][0]
+
+    def fit_row(sheet, group):
+        area_mask, bits_05, bits_06, row_cells = row_shape(group)
+        reachable = row_cells & claimed_tiles.keys()
+        busy_tiles = set()
+        for cell in reachable:
+            busy_tiles |= taken(cell)[0]
+        tile, free_run = None, 0
+        for first in range(1023, 511, -1):
+            free_run = 0 if first in busy_tiles else free_run + 1
+            if free_run == D.MOTIONS[sheet][0]:
+                tile = first
+                break
+        palette = palette_slot(sheet, reachable)
+        if tile is None or palette is None:
+            return None
+        return sheet, area_mask, tile, palette, bits_05, bits_06, CYBER.get(sheet, 0)
+
+    # Enemy to be dropped from WR factory chutes, should only be loaded wherever the normal trash block can be loaded.
+    chute_enemy = None
+    if any((point["enemy_id"], point["work0"]) == CHUTE for point in points):
+        cells = {cell for cell in loaded(vanilla_rows, motion(DEATHLOCK)) if cell[1] == "normal"}
+        fallers = [variant for variant in FALLERS if variant[0] not in full]
+        loaded_here = [variant for variant in fallers if cells <= loaded(rows, motion(variant[0]))]
+        if loaded_here:
+            chute_enemy = rng.choice(loaded_here)
+        elif len(rows) + 2 <= stage["preload"][1]:
+            fitting = [(variant, row) for variant in fallers
+                       for row in [fit_row(motion(variant[0]), cells)] if row is not None]
+            if fitting:
+                chute_enemy, row = rng.choice(fitting)
+                rows.append(row)
+        if chute_enemy is not None:
+            used[chute_enemy[0]] = used.get(chute_enemy[0], 0) + 1
 
     # 3. add extra enemies into the stage that did not previously have them
     def choices(point):
         """What each of a spawn point's spawn locations can hold."""
-        needed_cells = loaded(vanilla_rows, motion(point["enemy_id"]))
         out = {candidate for candidate in CANDIDATES
                if candidate not in made_here
-               and all(needed_cells <= loaded(rows, sheet) for sheet in sheets_of(candidate))
+               and all(needed_cells(point, candidate) <= loaded(rows, sheet) for sheet in sheets_of(candidate))
                and placements(stage_id, candidate, point)}
-        if all(needed_cells <= loaded(rows, sheet) for sheet in sheets_of(point["enemy_id"])):
+        if all(needed_cells(point, point["enemy_id"]) <= loaded(rows, sheet) for sheet in sheets_of(point["enemy_id"])):
             out.add(point["enemy_id"])
         return out
 
@@ -413,7 +515,7 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
             weight[point["index"]] = 1 / (1 + len(options))
         best = None
         for candidate in CANDIDATES:
-            if candidate in made_here:
+            if candidate in made_here or candidate in full:
                 continue
             served_by_cells = {}
             for point in free_points:
@@ -423,55 +525,45 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
                 if point["enemy_id"] in D.SWIMMERS and candidate != ICEBON \
                         and not any(swims(variant) for variant, _offset in fits):
                     continue
-                cells = frozenset(loaded(vanilla_rows, motion(point["enemy_id"])))
+                cells = frozenset(needed_cells(point, candidate))
                 served_by_cells.setdefault(cells, []).append(point)
             for cells, served in served_by_cells.items():
                 missing = cells - loaded(rows, motion(candidate))
                 if not missing:
                     continue
-                area_mask = bits_05 = bits_06 = 0
-                for area, mode in missing:
-                    area_mask |= 1 << area
-                    bits_05 |= MODES[mode][0]
-                    bits_06 |= MODES[mode][1]
-                row_cells = loaded([(0, area_mask, 0, 0, bits_05, bits_06, 0)], 0)
-                if loaded(rows, motion(candidate)) & row_cells:
-                    continue                    
-                reachable = row_cells & claimed_tiles.keys()
+                groups = [missing]
+                if loaded(rows, motion(candidate)) & row_shape(missing)[3]:
+                    groups = [{cell for cell in missing if cell[1] == mode} for mode in MODES]
+                    groups = [group for group in groups if group]
                 fitted, added = [], 0
                 try:
-                    for sheet in sheets_of(candidate):
-                        have = loaded(rows, sheet) & row_cells
-                        if have == row_cells and sheet != motion(candidate):
-                            continue
-                        if have:
+                    for group in groups:
+                        row_cells = row_shape(group)[3]
+                        if loaded(rows, motion(candidate)) & row_cells:
                             fitted = None
                             break
-                        busy_tiles = set()
-                        for cell in reachable:
-                            busy_tiles |= taken(cell)[0]
-                        tile, free_run = None, 0 
-                        for first in range(1023, 511, -1):
-                            free_run = 0 if first in busy_tiles else free_run + 1
-                            if free_run == D.MOTIONS[sheet][0]:
-                                tile = first
+                        for sheet in sheets_of(candidate):
+                            have = loaded(rows, sheet) & row_cells
+                            if have == row_cells and sheet != motion(candidate):
+                                continue
+                            row = None if have else fit_row(sheet, group)
+                            if row is None:
+                                fitted = None
                                 break
-                        palette = palette_slot(sheet, reachable)
-                        if tile is None or palette is None:
-                            fitted = None
+                            fitted.append(row)
+                            rows.append(row)
+                            added += 1
+                        if fitted is None:
                             break
-                        fitted.append((sheet, area_mask, tile, palette, bits_05, bits_06,
-                                       CYBER.get(sheet, 0)))
-                        rows.append(fitted[-1])
-                        added += 1
                 finally:
                     del rows[len(rows) - added:]
-                if not fitted:
+                if not fitted or len(rows) + len(fitted) + 1 > stage["preload"][1]:
                     continue
-                by_hand = candidate == HEAVY or (candidate == VOLCAIRE and any(
-                    (stage_id, point["index"]) in D.VOLCAIRE_AT for point in served))
-                score = (by_hand, sum(weight[point["index"]] for point in served),
-                         -used.get(candidate, 0), rng.random())
+                by_hand = (candidate in (HEAVY, VOLCAIRE) and not loaded(rows, motion(candidate))
+                           and any((stage_id, point["index"]) in (D.HEAVY_CANNON_AT if candidate == HEAVY
+                                                                  else D.VOLCAIRE_AT) for point in served))
+                score = (by_hand, -used.get(candidate, 0), sum(weight[point["index"]] for point in served),
+                         rng.random())
                 if best is None or score > best[0]:
                     best = (score, fitted, candidate)
         if best is None:
@@ -497,13 +589,11 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
     for point in sorted(points, key=lambda point: point["x"]):
         own = point["enemy_id"]
         options = choices(point) if point["free"] else set()
+        if options - full:
+            options -= full
         if not options:
             recent.append(own)                      # stay vanilla
             continue
-        if HEAVY in options and (stage_id, point["index"]) in D.HEAVY_CANNON_AT:
-            options = {HEAVY}               
-        if VOLCAIRE in options and (stage_id, point["index"]) in D.VOLCAIRE_AT:
-            options = {VOLCAIRE}
         water = set()
         if own in D.SWIMMERS:
             water = {enemy for enemy in options if enemy == ICEBON
@@ -514,11 +604,11 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
             reach = {enemy: most(enemy, point) for enemy in options}
             enough = {enemy for enemy in options if reach[enemy] >= budget(point) or enemy == own}
             options = enough or {enemy for enemy in options if reach[enemy] == max(reach.values())}
+        if len(options) > 1 and own in options and own not in kept:
+            options = set(options) - {own}
         nearby = recent[-NEIGHBORS:]
         fewest = min(nearby.count(enemy) for enemy in options)
         options = sorted(enemy for enemy in options if nearby.count(enemy) == fewest)
-        if len(options) > 1 and own in options:
-            options.remove(own)
         enemy = rng.choices(options, [1 / (1 + used.get(e, 0)) for e in options])[0]
         used[enemy] = used.get(enemy, 0) + 1
         recent.append(enemy)
@@ -577,9 +667,11 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
             have += toughness(extra)
 
     # Extra rows that were never used can be dropped.
-    held_sheets = {sheet for enemy in recent for sheet in sheets_of(enemy)}
+    held = recent + ([chute_enemy[0]] if chute_enemy is not None else [])
+    held_sheets = {sheet for enemy in held for sheet in sheets_of(enemy)}
     rows = rows[:len(vanilla_rows)] + [row for row in rows[len(vanilla_rows):]
                                        if row[0] in held_sheets]
+
 
     # templates: for enemies that changed, or are marked with the AP logo graphic.
     first_new_template = stage["templates"][1]
@@ -612,18 +704,37 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float)
             template_index[template] = first_new_template + len(new_templates)
             new_templates.append(template)
         pack_points.append((x, y, template_index[template], point["index"]))
+
+    if chute_enemy is not None:
+        repoint[0] = first_new_template + len(new_templates)
+        new_templates.append((1, *entity(chute_enemy), 1, 0, 0))   # respawn flag, a Key Knight target
     return dict(templates=new_templates, repoint=repoint, moves=moves, rows=rows,
                 marked=marked, pack=pack_points)
 
 
 def randomize(rng, difficulty: float = 1.0) -> dict:
     """
-    Randomize each level in order of ID (TODO could be randomized if thats better). 
-    Keeps the used variable so that other stages can prioritize unused enemies.
+    Randomize each level, in a shuffled order, prioritizing the least used enemy.
     """
     used: Dict[int, int] = {}
-    return {stage_id: randomize_stage(stage_id, rng, used, difficulty)
-            for stage_id in sorted(D.STAGES)}
+    stages_in: Dict[int, int] = {}
+    order = sorted(D.STAGES)
+    rng.shuffle(order)
+    out = {}
+    for stage_id in order:
+        full = {enemy for enemy, n in stages_in.items() if n >= MAX_STAGES}
+        result = out[stage_id] = randomize_stage(stage_id, rng, used, difficulty, full)
+        stage = D.STAGES[stage_id]
+        first = stage["templates"][1]
+        here = {table_id(*result["templates"][result["repoint"][index] - first][1:3])
+                if index in result["repoint"] else stage["enemy_templates"][template][1]
+                for index, template, *_ in stage["enemy_spawn_points"]}
+        here |= {table_id(*result["templates"][template - first][1:3])
+                 for template in [t for _x, _y, t, _spot in result["pack"]] + [result["repoint"].get(0)]
+                 if template is not None}
+        for enemy in here:
+            stages_in[enemy] = stages_in.get(enemy, 0) + 1
+    return dict(sorted(out.items()))
 
 
 def writes(result: dict) -> List[Tuple[int, bytes]]:
@@ -653,6 +764,7 @@ def writes(result: dict) -> List[Tuple[int, bytes]]:
             table += (bytes([sheet, area_mask]) + tile.to_bytes(2, "little")
                       + bytes([palette, bits_05, bits_06, cyber]))
         table += bytes([0xFF]) + bytes(7)           # FF is terminator
+        assert len(table) <= stage["preload"][1] * 8, stage_id
         out.append((stage["preload"][0], bytes(table)))
 
     marked = {row_index for stage_result in result.values() for row_index in stage_result["marked"]}
