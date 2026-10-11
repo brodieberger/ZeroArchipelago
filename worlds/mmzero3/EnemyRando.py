@@ -687,6 +687,8 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
         flag, _enemy, _work0, _work1, attr, mettaur_id, virus_id = templates[point["template"]]
         if variant[0] == D.PILLAR["enemy"] and needs_pillar(point, (dx, dy)):
             flag |= D.PILLAR["flag"]
+        if variant[0] == VOLCAIRE and (variant != own or (dx, dy) != (0, 0)):
+            flag |= D.VOLCAIRE_PUFF
         template = (flag, *entity(variant), attr | mark << MARK_SHIFT, mettaur_id, virus_id)
         if template not in template_index:
             template_index[template] = first_new_template + len(new_templates)
@@ -699,6 +701,8 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
         flag |= COMPANION
         if variant[0] == D.PILLAR["enemy"]:
             flag |= D.PILLAR["flag"]
+        if variant[0] == VOLCAIRE:
+            flag |= D.VOLCAIRE_PUFF
         template = (flag, *entity(variant), attr & ((1 << MARK_SHIFT) - 1), mettaur_id, virus_id)
         if template not in template_index:
             template_index[template] = first_new_template + len(new_templates)
