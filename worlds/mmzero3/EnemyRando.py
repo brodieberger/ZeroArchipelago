@@ -39,7 +39,7 @@ BURNABLE_WOOD = 34   # level geometry and not an actual enemy
 ICE_BLOCK = 63       # the Ice Base ice block, a platform
 
 # Hammers must be in their vanilla spots since you push them to reach items, but can still appear elsewhere.
-# Deathlocks are a WIP
+# A Deathlock is the Repair Factory's junk piles from the chutes
 HAMMER, DEATHLOCK = 21, 55
 CHUTE = (DEATHLOCK, 8)
 # Riders can ride on moving platforms, fallers are affected by gravity and can be placed into the chutes on WR factory.
@@ -48,6 +48,10 @@ RIDERS = {0, 14, 30, 62, 64}    # Pantheon Guardian, Top Gabyoall, Beetank, Shot
 # but they can still have certain ceiling enemies placed on them. So place heavy cannons there.
 SCREEN_TOP_CEILINGS = {(13, 28), (13, 31), (13, 32), (13, 35), (13, 40)}
 FALLERS = ((48, 0, 0), (62, 0, 0), (67, 0, 0))
+# Replace enemes spawned from the free standing mouse holes, ignoring the wall ones.
+NEST = 12
+NEST_WALKERS = ((0, 0, 0), (1, 0, 0), (14, 0, 0), (30, 0, 0), (48, 0, 0), (62, 0, 0), (64, 0, 0),
+                (65, 0, 0))
 
 # how many points back a point looks to avoid repeating an enemy.
 NEIGHBORS = 4       
@@ -73,12 +77,13 @@ def motion(enemy_id: int) -> int:
     return D.SPECIES[enemy_id]["motion"]
 
 
-def spot_free(enemy_id: int, counted: Set[int]) -> bool:
+def spot_free(enemy_id: int, work0: int, counted: Set[int]) -> bool:
     """Whether an enemy spawn point can be replaced by a different enemy."""
     species = D.SPECIES[enemy_id]
     makes_others = set(species["makes"]) - {enemy_id}
     return (species["motion"] is not None
-            and enemy_id not in (BURNABLE_WOOD, ICE_BLOCK, HAMMER, DEATHLOCK)
+            and enemy_id not in (BURNABLE_WOOD, ICE_BLOCK, HAMMER)
+            and (enemy_id, work0) != CHUTE
             and not makes_others & counted)
 
 
@@ -87,7 +92,7 @@ def movable(enemy_id: int) -> bool:
     species = D.SPECIES[enemy_id]
     return (enemy_id in SPAWNED and species["motion"] is not None and species["hurt"] != "?"
             and set(species["makes"]) <= {enemy_id}
-            and enemy_id not in (BURNABLE_WOOD, ICE_BLOCK, DEATHLOCK))
+            and enemy_id not in (BURNABLE_WOOD, ICE_BLOCK))
 
 
 def swims(variant) -> bool:
@@ -217,7 +222,7 @@ def stage_points(stage_id: int) -> list:
         points.append(dict(index=index, template=template, enemy_id=enemy_id, work0=work0,
                            work1=work1, x=x, y=y, spots=spots, pack=pack,
                            kept=(stage_id, index) in D.NEVER_CHANGES,
-                           free=(spot_free(enemy_id, counted_here)
+                           free=(spot_free(enemy_id, work0, counted_here)
                                  and (stage_id, index) not in D.NEVER_CHANGES),
                            # Checks if room is there for the new pillar art
                            pillar_room=all((stage_id, area) in D.PILLAR["areas"]
@@ -275,6 +280,8 @@ def placements(stage_id: int, candidate: int, point: dict, spots=None) -> list:
         for variant, (spawn_requirement, need_below, need_above) in D.VARIANTS.items():
             if candidate == HEAVY and height is not None and variant[1] != height:
                 continue
+            if variant[:2] == CHUTE:
+                continue
             if swims(variant) and (point["enemy_id"] not in D.SWIMMERS or (dx, dy) != (0, 0)):
                 continue
             # Since volcaires are placed by hand, can ignore coded spawn rules and such
@@ -288,8 +295,9 @@ def placements(stage_id: int, candidate: int, point: dict, spots=None) -> list:
 
 
 def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
-                    full: Set[int] = frozenset()) -> dict:
-    """Randomize one stage's enemies. `full` are the enemies already in MAX_STAGES stages."""
+                    full: Set[int] = frozenset(), keep_junk: bool = False) -> dict:
+    """Randomize one stage's enemies. `full` are the enemies already in MAX_STAGES stages.
+    `keep_junk` keeps the Deathlock row, for a stage whose chutes found no enemy to drop."""
     stage = D.STAGES[stage_id]
     templates = stage["enemy_templates"]
     vanilla_rows = stage["preload_rows"]
@@ -363,15 +371,16 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
         return False
 
     for old_enemy in sorted(placed_here - made_here):
-        if old_enemy in (HEAVY, ICEBON) or old_enemy in kept:
+        if old_enemy in (HEAVY, ICEBON) or old_enemy in kept or (old_enemy == DEATHLOCK and keep_junk):
             continue    
-        own_points = [point for point in points if point["enemy_id"] == old_enemy]
+        own_points = [point for point in points if point["enemy_id"] == old_enemy
+                      and (old_enemy, point["work0"]) != CHUTE]
         if not all(point["free"] for point in own_points):
             continue
         old_size, old_palettes = D.MOTIONS[motion(old_enemy)]
         options = []
         for candidate in CANDIDATES:
-            if candidate in full:
+            if candidate in full or candidate in made_here:
                 continue
             extras = sheets_of(candidate)[1:]
             if (all(sheet not in sheets_here
@@ -476,22 +485,37 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
             return None
         return sheet, area_mask, tile, palette, bits_05, bits_06, CYBER.get(sheet, 0)
 
-    # Enemy to be dropped from WR factory chutes, should only be loaded wherever the normal trash block can be loaded.
-    chute_enemy = None
-    if any((point["enemy_id"], point["work0"]) == CHUTE for point in points):
-        cells = {cell for cell in loaded(vanilla_rows, motion(DEATHLOCK)) if cell[1] == "normal"}
-        fallers = [variant for variant in FALLERS if variant[0] not in full]
-        loaded_here = [variant for variant in fallers if cells <= loaded(rows, motion(variant[0]))]
+    def machine_enemy(variants, cells):
+        """Variants for an enemy spawner, from WR factory."""
+        variants = [variant for variant in variants if variant[0] not in full]
+        chosen = None
+        loaded_here = [variant for variant in variants if cells <= loaded(rows, motion(variant[0]))]
         if loaded_here:
-            chute_enemy = rng.choice(loaded_here)
+            chosen = rng.choice(loaded_here)
         elif len(rows) + 2 <= stage["preload"][1]:
-            fitting = [(variant, row) for variant in fallers
+            fitting = [(variant, row) for variant in variants
                        for row in [fit_row(motion(variant[0]), cells)] if row is not None]
             if fitting:
-                chute_enemy, row = rng.choice(fitting)
+                chosen, row = rng.choice(fitting)
                 rows.append(row)
-        if chute_enemy is not None:
-            used[chute_enemy[0]] = used.get(chute_enemy[0], 0) + 1
+        if chosen is not None:
+            used[chosen[0]] = used.get(chosen[0], 0) + 1
+        return chosen
+
+    # Enemy to be dropped from WR factory chutes
+    chute_enemy = None
+    if any((point["enemy_id"], point["work0"]) == CHUTE for point in points):
+        chute_enemy = machine_enemy(FALLERS, {cell for cell in loaded(vanilla_rows, motion(DEATHLOCK))
+                                              if cell[1] == "normal"})
+    # floor nests' enemy
+    nest_enemy = None
+    floor_nests = [point for point in points if point["enemy_id"] == NEST and point["work0"] != 4]
+    if floor_nests:
+        near = {area for point in floor_nests for area in D.HEAVY_AREAS[(stage_id, point["index"])]}
+        nest_enemy = machine_enemy(
+            [variant for variant in NEST_WALKERS
+             if all((variant, (0, 0)) in placements(stage_id, variant[0], point) for point in floor_nests)],
+            {cell for cell in loaded(vanilla_rows, motion(NEST)) if cell[1] == "normal" and cell[0] in near})
 
     # 3. add extra enemies into the stage that did not previously have them
     def choices(point):
@@ -667,7 +691,7 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
             have += toughness(extra)
 
     # Extra rows that were never used can be dropped.
-    held = recent + ([chute_enemy[0]] if chute_enemy is not None else [])
+    held = recent + [made[0] for made in (chute_enemy, nest_enemy) if made is not None]
     held_sheets = {sheet for enemy in held for sheet in sheets_of(enemy)}
     rows = rows[:len(vanilla_rows)] + [row for row in rows[len(vanilla_rows):]
                                        if row[0] in held_sheets]
@@ -710,10 +734,16 @@ def randomize_stage(stage_id: int, rng, used: Dict[int, int], difficulty: float,
         pack_points.append((x, y, template_index[template], point["index"]))
 
     if chute_enemy is not None:
+        junk = next(row for row, drop in enumerate(D.DROPS)
+                    if drop[0] == stage_id and drop_enemy(drop) == DEATHLOCK)
         repoint[0] = first_new_template + len(new_templates)
-        new_templates.append((1, *entity(chute_enemy), 1, 0, 0))   # respawn flag, a Key Knight target
+        new_templates.append((1, *entity(chute_enemy), 1 | (junk + 1) << MARK_SHIFT, 0, 0))
+    end_template = 0
+    if nest_enemy is not None:
+        end_template = first_new_template + len(new_templates)
+        new_templates.append((1, *entity(nest_enemy), 1, 0, 0))
     return dict(templates=new_templates, repoint=repoint, moves=moves, rows=rows,
-                marked=marked, pack=pack_points)
+                marked=marked, pack=pack_points, end_template=end_template)
 
 
 def randomize(rng, difficulty: float = 1.0) -> dict:
@@ -727,14 +757,23 @@ def randomize(rng, difficulty: float = 1.0) -> dict:
     out = {}
     for stage_id in order:
         full = {enemy for enemy, n in stages_in.items() if n >= MAX_STAGES}
-        result = out[stage_id] = randomize_stage(stage_id, rng, used, difficulty, full)
+        before = dict(used)
+        result = randomize_stage(stage_id, rng, used, difficulty, full)
+        junk_traded = any(vanilla[0] == motion(DEATHLOCK) and row[0] != vanilla[0] for vanilla, row
+                          in zip(D.STAGES[stage_id]["preload_rows"], result["rows"]))
+        if junk_traded and 0 not in result["repoint"]:
+            used.clear()
+            used.update(before)
+            result = randomize_stage(stage_id, rng, used, difficulty, full, keep_junk=True)
+        out[stage_id] = result
         stage = D.STAGES[stage_id]
         first = stage["templates"][1]
         here = {table_id(*result["templates"][result["repoint"][index] - first][1:3])
                 if index in result["repoint"] else stage["enemy_templates"][template][1]
                 for index, template, *_ in stage["enemy_spawn_points"]}
         here |= {table_id(*result["templates"][template - first][1:3])
-                 for template in [t for _x, _y, t, _spot in result["pack"]] + [result["repoint"].get(0)]
+                 for template in [t for _x, _y, t, _spot in result["pack"]]
+                 + [result["repoint"].get(0), result["end_template"] or None]
                  if template is not None}
         for enemy in here:
             stages_in[enemy] = stages_in.get(enemy, 0) + 1
@@ -758,7 +797,7 @@ def writes(result: dict) -> List[Tuple[int, bytes]]:
         for x, y, template, _spot in sorted(stage_result["pack"]):
             at = next((i for i, row in enumerate(table) if i and row[0] > x), len(table))
             table.insert(at, (x, y, template))
-        table.append((0x7FFFFFFF, 32767, 0)) 
+        table.append((0x7FFFFFFF, 32767, stage_result["end_template"])) 
         assert len(table) <= stage["spawn_point_capacity"], stage_id
         out.append((stage["spawn_points"], b"".join(
             x.to_bytes(4, "little", signed=True) + y.to_bytes(2, "little", signed=True)
