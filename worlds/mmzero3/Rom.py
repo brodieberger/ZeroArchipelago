@@ -8,9 +8,8 @@ from BaseClasses import ItemClassification
 from settings import get_settings
 from worlds.Files import APPatchExtension, APProcedurePatch, APTokenMixin, APTokenTypes
 
-from . import Data
-from . import EnemyRando
-from . import Palettes
+from .data import Data
+from .randomizers import EnemyRando, Palettes
 from .Locations import shop_location_names
 
 if TYPE_CHECKING:
@@ -116,12 +115,12 @@ class MMZero3PatchExtensions(APPatchExtension):
     @staticmethod
     def recolor_enemies(caller: APProcedurePatch, rom: bytes, flag_file: str) -> bytes:
         """
-        Redraw each enemies sheets to match the correct palettes.
-        Used for Randomized enemies.
+        Trim and redraw each enemy sheets to match the correct palettes. Used for Randomized enemies.
         """
         if not json.loads(caller.get_file(flag_file).decode("utf-8")):
             return rom
         rom = bytearray(rom)
+        EnemyRando.trim_sheets(rom)
         EnemyRando.recolor(rom)
         return bytes(rom)
 
