@@ -1,6 +1,9 @@
+import hashlib
 import json
 import os
 from typing import List, TYPE_CHECKING
+
+import bsdiff4
 
 import settings
 import Utils
@@ -8,7 +11,7 @@ from BaseClasses import ItemClassification
 from settings import get_settings
 from worlds.Files import APPatchExtension, APProcedurePatch, APTokenMixin, APTokenTypes
 
-from .data import Data
+from .data import Data, Legacy
 from .randomizers import EnemyRando, Palettes
 from .Locations import shop_location_names
 
@@ -28,6 +31,58 @@ def get_base_rom_bytes() -> bytes:
         return infile.read()
 
 
+def get_zero2_rom_bytes() -> bytes:
+    file_name = get_settings().MMZero3_settings["zero2_rom_file"]
+    if not os.path.exists(file_name):
+        file_name = Utils.user_path(file_name)
+    if not os.path.exists(file_name):
+        raise FileNotFoundError(
+            "This seed has the legacy stages, which are built from your own Mega Man Zero 2 (USA) "
+            f"ROM: set MMZero3_settings.zero2_rom_file in host.yaml (looked for {file_name})")
+    with open(file_name, "rb") as infile:
+        data = infile.read()
+    if hashlib.md5(data).hexdigest() != Legacy.ZERO2_MD5:
+        raise Exception(f"{file_name} is not Mega Man Zero 2 (USA): its md5 does not match")
+    return data
+
+
+def lz77(data: bytes, at: int) -> bytes:
+    """GBA LZ77 compression."""
+    size = int.from_bytes(data[at + 1:at + 4], "little")
+    out = bytearray()
+    i = at + 4
+    while len(out) < size:
+        flags = data[i]
+        i += 1
+        for bit in range(8):
+            if len(out) >= size:
+                break
+            if flags & (0x80 >> bit):
+                b0, b1 = data[i], data[i + 1]
+                i += 2
+                disp = (((b0 & 0xF) << 8) | b1) + 1
+                for _ in range((b0 >> 4) + 3):
+                    out.append(out[-disp])
+            else:
+                out.append(data[i])
+                i += 1
+    return bytes(out[:size])
+
+
+def decompress_art(data: bytes, src: int, stored: int) -> bytes:
+    """Zero 2"""
+    out = bytearray()
+    p = src
+    while p < src + stored:
+        head = int.from_bytes(data[p:p + 4], "little")
+        if head == 0:
+            break
+        n = head & 0xFFFFFF
+        out += lz77(data, p + 4) if head & 0x80000000 else data[p + 4:p + n]
+        p += n
+    return bytes(out)
+
+
 class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     game = "Mega Man Zero 3"
     hash = "aa1d5eeffcd5e4577db9ee6d9b1100f9"
@@ -37,6 +92,7 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     procedure = [
         ("apply_bsdiff4", ["basepatch.bsdiff4"]),
         ("apply_tokens", ["token_data.bin"]),
+        ("fill_legacy_stages", ["legacy.bsdiff4"]),
         ("recolor_palettes", ["palettes.json"]),
         ("recolor_enemies", ["enemies.json"]),
     ]
@@ -110,6 +166,27 @@ class MMZero3PatchExtensions(APPatchExtension):
         for offset, (size, preset) in by_offset.items():
             rom[offset:offset + size] = Palettes.recolor(rom[offset:offset + size],
                                                           Palettes.PRESETS[preset])
+        return bytes(rom)
+
+    @staticmethod
+    def fill_legacy_stages(caller: APProcedurePatch, rom: bytes, patch_file: str) -> bytes:
+        """
+        Art, stage layout bytes, and sound effects from Zero 2 ROM, provided by the player.
+        Also handles compressed assets.
+        """
+        at, _ = Data.SEED_CONFIG_FIELDS["legacyStages"]
+        if not rom[Data.SEED_CONFIG_ROM_OFFSET + at]:
+            return rom
+        zero2 = get_zero2_rom_bytes()
+        source = zero2 + b"".join(decompress_art(zero2, src, stored) for src, stored in Legacy.COMPRESSED_ART)
+        blob = bsdiff4.patch(source, caller.get_file(patch_file))
+        if hashlib.sha1(blob).hexdigest() != Legacy.BLANK_SPOTS_SHA1:
+            raise Exception("the legacy stages could not rebuild from your Zero 2 ROM")
+        rom = bytearray(rom)
+        p = 0
+        for offset, size in Legacy.BLANK_SPOTS:
+            rom[offset:offset + size] = blob[p:p + size]
+            p += size
         return bytes(rom)
 
     @staticmethod
@@ -206,7 +283,8 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u8  infiniteLives;
         u8  finalStageRank;
         u8  enemyDiskMarkers;
-        u8  unused[3];
+        u8  legacyStages;
+        u8  unused[2];
     };
 
     Theres also gApShopPrices, one u16 per shop slot: 
@@ -231,6 +309,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "infiniteLives": 1 if world.options.infinite_lives.value else 0,
         "finalStageRank": world.options.final_stage_rank.value,
         "enemyDiskMarkers": 1 if world.options.enemy_disk_markers.value else 0,
+        "legacyStages": 1 if world.options.legacy_stages.value else 0,
         "unused": 0,
     }
 
@@ -269,4 +348,12 @@ class MMZero3Settings(settings.Group):
         copy_to = "Mega Man Zero 3 (USA).gba"
         md5s = [MMZero3ProcedurePatch.hash]
 
+    class Zero2RomFile(settings.UserFilePath):
+        """File name of your Mega Man Zero 2 (USA) ROM, for seeds with the legacy stages"""
+        required = False
+        description = "Mega Man Zero 2 (USA) ROM File"
+        copy_to = "Mega Man Zero 2 (USA).gba"
+        md5s = [Legacy.ZERO2_MD5]
+
     rom_file: RomFile = RomFile(RomFile.copy_to)
+    zero2_rom_file: Zero2RomFile = Zero2RomFile(Zero2RomFile.copy_to)

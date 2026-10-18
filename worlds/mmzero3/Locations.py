@@ -435,6 +435,14 @@ for slot_number in range(Data.AP_SHOP_SLOTS_MAX):
         can_create=shop_slot_is_stocked(slot_number),
     )
 
+# The imported cyber elves from each imported level. Just from Crystal Caves for now.
+for elf in range(Data.AP_IMPORT_ELF_COUNT):
+    location_data_table[f"Z2 Crystal Cave Cyber Elf {elf + 1}"] = MMZero3LocationData(
+        region="Z2 Crystal Cave",
+        address=Data.AP_LOC_IMPORT_ELF_FIRST + elf,
+        can_create=lambda world: world.options.legacy_stages.value,
+    )
+
 # Location groups for `!hint` and tracker filtering.
 location_categories: Dict[str, range] = {
     "Secret Disks": range(1, 181),
@@ -450,6 +458,8 @@ location_categories: Dict[str, range] = {
                                           + Data.AP_ITEMSANITY_COUNT),
     "Shop": range(Data.AP_SHOP_LOCATION_FIRST,
                   Data.AP_SHOP_LOCATION_FIRST + Data.AP_SHOP_SLOTS_MAX),
+    "Cyber Elves": range(Data.AP_LOC_IMPORT_ELF_FIRST,
+                         Data.AP_LOC_IMPORT_ELF_FIRST + Data.AP_IMPORT_ELF_COUNT),
 }
 
 
