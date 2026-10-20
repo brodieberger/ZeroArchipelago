@@ -1,9 +1,8 @@
 import hashlib
 import json
 import os
+import pkgutil
 from typing import List, TYPE_CHECKING
-
-import bsdiff4
 
 import settings
 import Utils
@@ -11,9 +10,12 @@ from BaseClasses import ItemClassification
 from settings import get_settings
 from worlds.Files import APPatchExtension, APProcedurePatch, APTokenMixin, APTokenTypes
 
-from .data import Data, Legacy
+from .data import Data
 from .randomizers import EnemyRando, Palettes
 from .Locations import shop_location_names
+
+# Zero 2 Data locations to copy from player's ROM.
+LEGACY = json.loads(pkgutil.get_data(__package__, "data/legacy.json"))
 
 if TYPE_CHECKING:
     from . import MMZero3World
@@ -41,7 +43,7 @@ def get_zero2_rom_bytes() -> bytes:
             f"ROM: set MMZero3_settings.zero2_rom_file in host.yaml (looked for {file_name})")
     with open(file_name, "rb") as infile:
         data = infile.read()
-    if hashlib.md5(data).hexdigest() != Legacy.ZERO2_MD5:
+    if hashlib.md5(data).hexdigest() != LEGACY["zero2_md5"]:
         raise Exception(f"{file_name} is not Mega Man Zero 2 (USA): its md5 does not match")
     return data
 
@@ -92,7 +94,7 @@ class MMZero3ProcedurePatch(APProcedurePatch, APTokenMixin):
     procedure = [
         ("apply_bsdiff4", ["basepatch.bsdiff4"]),
         ("apply_tokens", ["token_data.bin"]),
-        ("fill_legacy_stages", ["legacy.bsdiff4"]),
+        ("fill_legacy_stages", []),
         ("recolor_palettes", ["palettes.json"]),
         ("recolor_enemies", ["enemies.json"]),
     ]
@@ -169,7 +171,7 @@ class MMZero3PatchExtensions(APPatchExtension):
         return bytes(rom)
 
     @staticmethod
-    def fill_legacy_stages(caller: APProcedurePatch, rom: bytes, patch_file: str) -> bytes:
+    def fill_legacy_stages(caller: APProcedurePatch, rom: bytes) -> bytes:
         """
         Art, stage layout bytes, and sound effects from Zero 2 ROM, provided by the player.
         Also handles compressed assets.
@@ -178,15 +180,17 @@ class MMZero3PatchExtensions(APPatchExtension):
         if not rom[Data.SEED_CONFIG_ROM_OFFSET + at]:
             return rom
         zero2 = get_zero2_rom_bytes()
-        source = zero2 + b"".join(decompress_art(zero2, src, stored) for src, stored in Legacy.COMPRESSED_ART)
-        blob = bsdiff4.patch(source, caller.get_file(patch_file))
-        if hashlib.sha1(blob).hexdigest() != Legacy.BLANK_SPOTS_SHA1:
-            raise Exception("the legacy stages could not rebuild from your Zero 2 ROM")
+        art = [decompress_art(zero2, int(src, 16), stored) for src, stored in LEGACY["compressed_art"]]
         rom = bytearray(rom)
-        p = 0
-        for offset, size in Legacy.BLANK_SPOTS:
-            rom[offset:offset + size] = blob[p:p + size]
-            p += size
+        for offset, src, size in LEGACY["zero2_copies"]:
+            offset, src = int(offset, 16), int(src, 16)
+            rom[offset:offset + size] = zero2[src:src + size]
+        for offset, i, src, size in LEGACY["art_copies"]:
+            offset, src = int(offset, 16), int(src, 16)
+            rom[offset:offset + size] = art[i][src:src + size]
+        for offset, data in LEGACY["new_bytes"]:
+            offset, data = int(offset, 16), bytes.fromhex(data)
+            rom[offset:offset + len(data)] = data
         return bytes(rom)
 
     @staticmethod
@@ -353,7 +357,7 @@ class MMZero3Settings(settings.Group):
         required = False
         description = "Mega Man Zero 2 (USA) ROM File"
         copy_to = "Mega Man Zero 2 (USA).gba"
-        md5s = [Legacy.ZERO2_MD5]
+        md5s = [LEGACY["zero2_md5"]]
 
     rom_file: RomFile = RomFile(RomFile.copy_to)
     zero2_rom_file: Zero2RomFile = Zero2RomFile(Zero2RomFile.copy_to)
