@@ -73,6 +73,7 @@ class MMZero3World(World):
         if passthrough:
             self.starting_weapons = set(passthrough["starting_weapons"])
             self.options.randomize_enemies.value = passthrough.get("randomize_enemies", 0)
+            self.options.required_secret_disks.value = passthrough["required_secret_disks"]
         else:
             self.starting_weapons = set(self.options.starting_weapons.value)
 
@@ -248,10 +249,11 @@ class MMZero3World(World):
         set_rule(self.multiworld.get_entrance("To Resistance Base 3", self.player),
                  lambda state: state.has("Story Progress", self.player, STORY_LATE))
 
-        # The final stage. Needs every access item
+        # The final stage. Needs every access item and the required disks (from options)
         set_rule(
             self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
-            lambda state: state.has_all(stage_access_names, self.player),
+            lambda state: state.has_all(stage_access_names, self.player)
+            and state.has_group("Secret Disks", self.player, self.options.required_secret_disks.value),
         )
         # Since its lame that important items could spawn here, prevent progressive items
         for location in self.multiworld.get_region("Abandoned Research Laboratory", self.player).locations:
