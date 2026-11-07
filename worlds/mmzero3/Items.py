@@ -1,4 +1,4 @@
-from typing import Callable, Dict, List, NamedTuple, Optional, Set, TYPE_CHECKING
+from typing import Callable, Container, Dict, List, NamedTuple, Optional, Set, TYPE_CHECKING
 
 from BaseClasses import Item, ItemClassification
 
@@ -27,6 +27,16 @@ stage_names = [
     "Sunken Library", "Giant Elevator", "Sub Arcadia"
 ]
 
+# Stages from other Zero games, legacy_stages.
+legacy_stage_names = ["Z2 Sand Wilderness", "Z2 Forest of Dysis", "Z2 Residential Area", "Z2 Crystal Cave",
+                      "Z2 Neo Arcadia Temple", "Z2 Temple of Flame", "Z2 Temple of Ice"]
+
+# Zero 2's stages in game order.
+zero2_stages = ["Z2 Sand Wilderness", "Z2 Computer Zone", "Z2 Train", "Z2 Power Room", "Z2 Forest of Dysis",
+                "Z2 Residential Area", "Z2 Bombardment Aircraft", "Z2 Forest of Notus", "Z2 Computer Zone 2",
+                "Z2 Crystal Cave", "Z2 Shuttle Factory", "Z2 Neo Arcadia Temple", "Z2 Temple of Flame",
+                "Z2 Temple of Ice", "Z2 Temple of Wind", "Z2 Yggdrasil"]
+
 # Weapon as they appear in game order.
 weapon_names = ["Buster", "Z-Saber", "Recoil Rod", "Shield Boomerang"]
 
@@ -36,6 +46,7 @@ weapon_chains: Dict[str, List[str]] = {
     "Z-Saber": ["Owns", "2nd Slash", "3rd Slash", "Charged Slash", "Attack +1", "Attack +2", "Attack +3"],
     "Recoil Rod": ["Owns", "Charged Rod", "Attack +1", "Attack +2", "Attack +3"],
     "Shield Boomerang": ["Owns", "Charged Throw", "Attack +1", "Attack +2", "Attack +3"],
+    "Chain Rod": ["Owns", "Charged Rod", "Attack +1", "Attack +2", "Attack +3"],
 }
 def weapon_ability_level(weapon: str, ability: str) -> int:
     return weapon_chains[weapon].index(ability) + 1
@@ -245,12 +256,14 @@ item_data_table: Dict[str, MMZero3ItemData] = {
         )
         for idx, stage in enumerate(stage_names)
     },
-    # Stages from other Zero games, only Crystal Cave for now.
-    "Z2 Crystal Cave Access": MMZero3ItemData(
-        code=196,  # TODO AP_ITEM_IMPORT_ACCESS
-        type=ItemClassification.progression,
-        can_create=lambda world: world.options.legacy_stages.value,
-    ),
+    **{
+        f"{stage} Access": MMZero3ItemData(
+            code=Data.AP_ITEM_IMPORT_ACCESS_FIRST + zero2_stages.index(stage),
+            type=ItemClassification.progression,
+            can_create=lambda world: world.options.legacy_stages.value,
+        )
+        for stage in legacy_stage_names
+    },
     
     # Chips
     "Ice Body Chip": MMZero3ItemData(code=197, type=ItemClassification.useful),
@@ -297,6 +310,14 @@ item_data_table: Dict[str, MMZero3ItemData] = {
         for idx, weapon in enumerate(weapon_names)
     },
 
+    # Zero 2. Added with the legacy stages.
+    "Progressive Chain Rod": MMZero3ItemData(
+        code=231,
+        type=ItemClassification.progression,
+        count=lambda world: len(weapon_chains["Chain Rod"]),
+        can_create=lambda world: world.options.legacy_stages.value,
+    ),
+
     # Advances the Resistance Base's story state. Mostly just unlocks new NPC dialogue
     "Story Progress": MMZero3ItemData(
         code=228,
@@ -322,23 +343,25 @@ item_data_table: Dict[str, MMZero3ItemData] = {
 
 item_table = {name: data.code for name, data in item_data_table.items() if data.code is not None}
 stage_access_names = [f"{stage} Access" for stage in stage_names]
-progressive_weapon_names = [f"Progressive {weapon}" for weapon in weapon_names]
+rom_weapon_names = [*weapon_names, "Chain Rod"]
+progressive_weapon_names = [f"Progressive {weapon}" for weapon in rom_weapon_names]
 
 # Story Progress
 STORY_MID = 1   # Mission Set 2 NPCs dialogue
 STORY_LATE = 2  # Mission Set 4 NPCs dialogue
 
 # Item groups for `!hint` and tracker filtering.
-item_categories: Dict[str, range] = {
+item_categories: Dict[str, Container[int]] = {
     "Secret Disks": range(1, 181),
     "Head Chips": range(1, 4),
-    "Stage Access": range(181, Data.AP_ITEM_IMPORT_ACCESS + 1),
+    "Stage Access": [*range(181, 196),
+                     *(Data.AP_ITEM_IMPORT_ACCESS_FIRST + zero2_stages.index(stage) for stage in legacy_stage_names)],
     "Chips": range(197, 206),
     "Body Chips": range(197, 202),
     "Foot Chips": range(202, 206),
     "EX Skills": range(206, 218),
     "Subtanks": range(221, 223),
-    "Weapons": range(224, 228),
+    "Weapons": [*range(224, 228), 231],
     "Traps": range(310, 313),
 }
 

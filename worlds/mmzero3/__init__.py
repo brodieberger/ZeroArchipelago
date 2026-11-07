@@ -6,7 +6,7 @@ from Options import OptionError
 from worlds.AutoWorld import WebWorld, World
 from worlds.generic.Rules import add_rule, set_rule, forbid_item, add_item_rule
 from .Items import (MMZero3Item, STORY_LATE, STORY_MID, item_data_table, item_name_groups,
-                    item_table, stage_access_names, stage_names, weapon_ability_level,
+                    item_table, legacy_stage_names, stage_access_names, stage_names, weapon_ability_level,
                     weapon_names)
 from .Locations import (MMZero3Location, location_data_table, location_name_groups, location_table,
                         locked_locations, shop_location_names)
@@ -232,8 +232,11 @@ class MMZero3World(World):
                 lambda state, item=f"{stage_name} Access": state.has(item, self.player),
             )
 
-        set_rule(self.multiworld.get_entrance("To Z2 Crystal Cave", self.player),
-                 lambda state: state.has("Z2 Crystal Cave Access", self.player))
+        for stage_name in legacy_stage_names:
+            set_rule(
+                self.multiworld.get_entrance(f"To {stage_name}", self.player),
+                lambda state, item=f"{stage_name} Access": state.has(item, self.player),
+            )
 
         # Cerveau's shop.
         for slot in range(self.options.shop_slots.value):
