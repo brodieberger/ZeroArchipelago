@@ -24,6 +24,8 @@ secret disks, (120 by default).
 
 ## Legacy stages
 
+### CURRENTLY NOT IMPLEMENTED
+
 With `legacy_stages` on, the seed will add stages from Mega Man Zero 2: Sand Wilderness, Forest of Dysis, Residential Area, Crystal Cave, Neo Arcadia Temple, Temple of Flame and Temple of Ice.
 
 This option also adds the Chain Rod as a fifth weapon, with the five `Progressive Chain Rod` items.
