@@ -28,8 +28,8 @@ stage_names = [
 ]
 
 # Stages from other Zero games, legacy_stages.
-legacy_stage_names = ["Z2 Sand Wilderness", "Z2 Forest of Dysis", "Z2 Residential Area", "Z2 Crystal Cave",
-                      "Z2 Neo Arcadia Temple", "Z2 Temple of Flame", "Z2 Temple of Ice"]
+legacy_stage_names = ["Z2 Sand Wilderness", "Z2 Computer Zone", "Z2 Train", "Z2 Power Room", "Z2 Forest of Dysis", "Z2 Residential Area",
+                      "Z2 Bombardment Aircraft", "Z2 Forest of Notus", "Z2 Computer Zone 2", "Z2 Crystal Cave", "Z2 Shuttle Factory", "Z2 Neo Arcadia Temple", "Z2 Temple of Flame", "Z2 Temple of Ice", "Z2 Temple of Wind"]
 
 # Zero 2's stages in game order.
 zero2_stages = ["Z2 Sand Wilderness", "Z2 Computer Zone", "Z2 Train", "Z2 Power Room", "Z2 Forest of Dysis",
