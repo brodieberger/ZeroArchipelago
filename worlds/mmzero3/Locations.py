@@ -536,6 +536,9 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     "Temple of Wind Cyber Elf: Hidden Past East Stairs": MMZero3LocationData(region="Z2 Temple of Wind", address=627, can_create=legacy_stages_on),
     "Temple of Wind Cyber Elf: 8th Pantheon Hunter Kill": MMZero3LocationData(region="Z2 Temple of Wind", address=628, can_create=legacy_stages_on),
     "Temple of Wind Cyber Elf: 5th Barrier Ship Kill": MMZero3LocationData(region="Z2 Temple of Wind", address=629, can_create=legacy_stages_on),
+    
+    "Complete Z2 Yggdrasil": MMZero3LocationData(region="Z2 Yggdrasil", address=640, can_create=legacy_stages_on),
+    "A+ Rank Clear: Z2 Yggdrasil": MMZero3LocationData(region="Z2 Yggdrasil", address=641, can_create=legacy_stages_on),
 }
 
 # Cerveau's shop

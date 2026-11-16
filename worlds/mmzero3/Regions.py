@@ -60,6 +60,7 @@ region_data_table: Dict[str, MMZero3RegionData] = {
         "Z2 Temple of Flame",
         "Z2 Temple of Ice",
         "Z2 Temple of Wind",
+        "Z2 Yggdrasil",
     ]),
 
     "Resistance Base 1": MMZero3RegionData(),
@@ -109,4 +110,5 @@ region_data_table: Dict[str, MMZero3RegionData] = {
     "Z2 Temple of Flame": MMZero3RegionData(),
     "Z2 Temple of Ice": MMZero3RegionData(),
     "Z2 Temple of Wind": MMZero3RegionData(),
+    "Z2 Yggdrasil": MMZero3RegionData(),
 }
