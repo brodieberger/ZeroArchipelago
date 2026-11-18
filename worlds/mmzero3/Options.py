@@ -6,21 +6,18 @@ from .data import Data
 
 
 class RequiredSecretDisks(Range):
-    """Percentage of the seed's Secret Disks required to unlock the final stage.
-
-    The Abandoned Research Laboratory opens once every other stage has been cleared and
-    you are holding this share of the disks. Clearing that stage completes the game.
-    A seed has 180 disks, unless the disk cut option is enabled.
-    """
+    """Percentage of the seed's Secret Disks you must hold to open the final stage."""
     display_name = "Required Secret Disks"
     range_start = 0
     range_end = 100
     default = 67
 
 class ExSkillRank(Choice):
-    """The rank a stage clear needs in order to send that stage's EX Skill check. In the vanilla game it would be an A.
+    """The rank you must get in a stage to send that stage's "A+ Rank Clear" check.
 
-    The rank is for the mission just finished, not your overall rank. F sends the check on any clear.
+    Note: The ranking system has been modified, and you are now judged per stage rather than your average. 
+    
+    F sends the check on any clear.
     """
     display_name = "EX Skill Rank"
     option_s = Data.RANK_S
@@ -36,8 +33,9 @@ class ExSkillRank(Choice):
 class FinalStageRank(Choice):
     """The rank you need to get on each stage for the final stage to open, in addition to the required disks.
 
-    F means that clearing each stage will automatically unlock the boss.
-    None means no stage has to be cleared at all, and the final stage opens as soon as you hold the required secret disks.
+    F means that clearing each stage will be needed to unlock the final stage.
+    
+    None means no stages have to be cleared at all, and the final stage opens as soon as you hold the required secret disks.
     """
     display_name = "Final Stage Rank"
     option_s = Data.RANK_S
@@ -62,7 +60,7 @@ class StartingWeapons(OptionSet):
     default = frozenset({"Buster", "Z-Saber"})
 
 class Itemsanity(Toggle):
-    """Makes every static energy and E-Crystal pickup a location check (82 in total)."""
+    """Makes every static life energy and E-Crystal pickup a location check (82 in total)."""
     display_name = "Itemsanity"
 
 
@@ -75,10 +73,15 @@ class SelectButton(Choice):
     """Select buttons functionality.
 
     Cycle Sub Weapon (Default)
+
     Cycle Main Weapon
+
     Cycle Head Chip
+
     Cycle Body Chip
+
     Cycle Foot Chip
+
     Use Subtank (Uses fullest Subtank)
     """
     display_name = "Select Button"
@@ -94,8 +97,10 @@ class SelectButton(Choice):
 class CyberElves(Choice):
     """Modifications to Cyber Elf usage. Satellite elves remain unmodified.
 
-    Vanilla: Unmodified Vanilla. Upgrading elves cost eCrystals, fusion elves decrease rank.
+    Vanilla: Unmodified Vanilla. Upgrading elves costs E-Crystals and using fusion elves decrease rank.
+
     No Penalty: Fusing an elf does not affect rank.
+
     Auto: Every passive elf received via disk is automatically opened and applied. 
     Does not affect rank. Gives the game a nice sense of progression, but makes it a lot easier.
     """
@@ -125,8 +130,11 @@ class RandomizedPalettes(Toggle):
 class RandomizeEnemies(Toggle):
     """
     Randomize each enemy spawn location.
+
     WARNING: VERY EARLY WORK IN PROGRESS. DO NOT TAKE INTO BIG MULTIWORLDS!
+
     This mode is very buggy, see the readme section to know what to expect.
+
     Recommended to enable enemy disk markers!
     """
     display_name = "Randomize Enemies (WIP)"
@@ -134,9 +142,12 @@ class RandomizeEnemies(Toggle):
 
 class EnemyDifficulty(Choice):
     """
-    Only applies if `randomize_enemies` is enabled. Higher difficulties put more enemies in the spot for one, based off of the health of the spot being replaced.
+    Only applies if enemy randomization is enabled. Higher difficulties put more enemies in the spot for one, based off of the health of the spot being replaced.
+    
     Minimal: Tries to match enemy placements by health. If a less health enemy replaces one with more health, place multiple copies at that location.
+    
     Chaos: Places multiple enemies around every spawnpoint regardless of HP or enemy type. Leads to many more enemies per stage. Developer's choice!
+    
     Insanity: Places as many enemies as possible. Tries to prioritize enemies with higher HP. Expect many shield enemies in tight quarters. Good luck!
     """
     display_name = "Randomized Enemy Difficulty (WIP)"
@@ -148,7 +159,7 @@ class EnemyDifficulty(Choice):
 
 class DiskNamePopup(DefaultOnToggle):
     """
-    When a Secret Disk arrives from Archipelago, a message box prints its contents.
+    When a Secret Disk arrives from Archipelago, an on screen notification describes its contents.
 
     The visual is slightly screen obscuring, so it is kept optional.
     """
@@ -165,17 +176,18 @@ class EnemyDiskMarkers(DefaultOnToggle):
 
 class LegacyStages(Choice):
     """
-    Adds stages from the other Mega Man Zero series games to this seed.
-    Just Zero 2 is added so far.
-    Enemy Randomizer, Stage Palette Randomizer, Itemsanity, and Lifesanity are not current supported for these stages.
+    Adds stages from Mega Man Zero 2 to the seed. Chain Rod included as a fifth weapon. Zero 2 forms are also added as location checks.
 
-    You will need to add your Zero 2 ROM to zero2_rom_file under MMZero3_settings in host.yaml,
-    located in your root Archipelago directory.
+    Enemy Randomizer, Stage Palette Randomizer, Itemsanity, and Extra Life Sanity are not currently supported for these stages.
 
-    Shuffle: keeps a total of 16 stages, with Zero 2 stages taking place of some of Zero 3's stages (see Legacy Shuffle Count).
-    The final stage is always Zero 3's Abandoned Research Factory. 
+    Off: Zero 3's 16 stages only.
+
+    Shuffle: still 16 stages, but Zero 2 stages take the place of some of Zero 3's.
+
+    All: all 16 Zero 2 stages added to the world, for 32 stages in total.
     
-    All: adds every Zero 2 stage beside Zero 3's, for a total of 32 stages.
+    Needs your own Mega Man Zero 2 (USA) ROM: set zero2_rom_file under MMZero3_settings in host.yaml, in your
+    Archipelago folder.
     """
     display_name = "Legacy Stages"
     option_off = 0
@@ -186,22 +198,26 @@ class LegacyStages(Choice):
 
 class CutSecretDisks(Toggle):
     """
-    WARNING: This option will leave Secret Disks out of your seed during generation.
+    (WIP)
 
-    Zero 2 stages have far fewer locations than the Zero 3 stages they replace, so a Legacy Stages shuffle with
-    many zero 2 levels, combined with a small shop, and no itemsanity/lifesanity can have more items than locations. 
-    This will cause generation to fail. This setting attempts to fix this problem by cutting down on the number of 
-    secret disks in the Zero 3 game. This will only remove enemy and lore disks first, removing cosmetic related disks next.
+    Your seed may fail to generate if not enough locations are included (likely due to shuffling Zero 2 stages which have fewer checks).
 
-    Off, a seed that cannot generate will refuses to generate. This lets you add more checks through the shop or other means.
+    You can try to add more shop slots, extra life sanity, or itemsanity to prevent this, or finally enable this option as a last resort.
 
-    On, certain Secret Disks are left out until the game can succeed in generation. 
+    Off: the seed fails to generate, saying how many checks it is short.
+
+    On: Secret Disks are removed until the seed can successfully generate. The world will remove the least useful disks first, from text files, cosmetics,
+    base decorations, E-Crystal disks, then cyber elves.
     """
     display_name = "Cut Secret Disks"
 
 
 class LegacyShuffleCount(NamedRange):
-    """How many of Zero 3's 15 stages Zero 2 stages replace, with Legacy Stages on shuffle."""
+    """When Zero 2 stages are shuffled in, how many of Zero 3's 15 stages (all but the final one) they replace.
+
+    1 to 15: exactly that many Zero 3 stages to replace with Zero 2 stages.
+    Coin flip (0): each stage has a 50/50 chance of being replaced.
+    """
     display_name = "Legacy Shuffle Count"
     range_start = 0
     range_end = 15
@@ -217,6 +233,7 @@ class InfiniteLives(Toggle):
 class AttackModeB(Toggle):
     """
     Start a new game with the attack mode set to Type B instead of Type A.
+
     You can still change it in game after the fact. This is just to save you several seconds every time you start a new game.
     """
     display_name = "Attack Mode B"
@@ -238,7 +255,7 @@ class ShopSlots(Range):
 class ShopPriceScale(Range):
     """How expensive Cerveau's shop is, as a percentage.
 
-    Items range from 70 to 700 eCrystals, with most being in the 100 to 300 range.
+    Items range from 70 to 700 E-Crystals, with most being in the 100 to 300 range.
     """
     display_name = "Shop Price Scale"
     range_start = 25
@@ -255,7 +272,7 @@ class TrapPercentage(Range):
 
 class EnabledTraps(OptionSet):
     """
-    Which traps may be placed. Right now, all are currently visual only.
+    Which traps may be placed. More interesting traps will come in a later update!
     Valid Keys: {"Earthquake", "Pixelate", "Slippery Floor"}
     """
     display_name = "Enabled Traps"
@@ -268,14 +285,16 @@ mmzero3_option_groups = [
         RequiredSecretDisks,
         FinalStageRank,
     ]),
+    OptionGroup("Legacy Stages (Zero 2)", [
+        LegacyStages,
+        LegacyShuffleCount,
+        CutSecretDisks,
+    ]),
     OptionGroup("Sanity Options", [
         ExtraLifeSanity,
         Itemsanity,
         ShopSlots,
         ShopPriceScale,
-        LegacyStages,
-        LegacyShuffleCount,
-        CutSecretDisks,
     ]),
     OptionGroup("Optional Randomization", [
         RandomizeEnemies,

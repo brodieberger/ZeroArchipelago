@@ -24,12 +24,14 @@ secret disks, (120 by default).
 
 ## Legacy stages
 
-With `legacy_stages` on, the seed will add all sixteen stages from Mega Man Zero 2. Every stage will be added onto the current seed, for a total of 32 accessible stages.
+`legacy_stages` adds stages from Mega Man Zero 2. With `all`, all sixteen are added onto Zero 3's, for a total of 32 accessible stages. With `shuffle`, the seed keeps 16 stages: Zero 2 stages take the place of some of Zero 3's (how many is `legacy_shuffle_count`), and a stage in a slot that gave an armor chip still gives that chip when cleared.
 
 This option also adds the Chain Rod as a fifth weapon, with the five `Progressive Chain Rod` items.
 You need your own Mega Man Zero 2 (USA) ROM to patch a seed with legacy stages. See the setup guide.
 
-A later patch will allow you to shuffle these stages into the pool, rather than add them on. Enemy Randomizer, Stage Palette Randomizer, Itemsanity, and Lifesanity are not currently supported for these stages as of now.
+Each legacy stage has its clear, its A+ rank clear, its cyber elves and its miniboss fights as locations (14 minibosses across eight stages). Zero 2's forms are locations too: Energy, Erase, Defense, Rise, Power, Active and X are earned as in Zero 2, in any stage, and Proto Form by clearing Yggdrasil.
+
+Enemy Randomizer, Stage Palette Randomizer, Itemsanity, and Lifesanity are not currently supported for these stages as of now.
 
 ## What items and locations get shuffled?
 

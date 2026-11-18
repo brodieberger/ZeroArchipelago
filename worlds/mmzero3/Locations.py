@@ -539,7 +539,27 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     
     "Complete Z2 Yggdrasil": MMZero3LocationData(region="Z2 Yggdrasil", address=640, can_create=legacy_stages_on),
     "A+ Rank Clear: Z2 Yggdrasil": MMZero3LocationData(region="Z2 Yggdrasil", address=641, can_create=legacy_stages_on),
-    "Proto Form": MMZero3LocationData(region="Z2 Yggdrasil", address=655, can_create=legacy_stages_on),
+    "Proto Form": MMZero3LocationData(region="Z2 Yggdrasil", address=390, can_create=legacy_stages_on),
+
+    # Legacy stages' minibosses
+    "Sand Wilderness Miniboss: 1st Golem Type E": MMZero3LocationData(region="Z2 Sand Wilderness", address=656, can_create=legacy_stages_on),
+    "Sand Wilderness Miniboss: 2nd Golem Type E": MMZero3LocationData(region="Z2 Sand Wilderness", address=657, can_create=legacy_stages_on),
+    "Computer Zone Miniboss: Golem Type I": MMZero3LocationData(region="Z2 Computer Zone", address=658, can_create=legacy_stages_on),
+    "Power Room Miniboss: 1st Gazamir": MMZero3LocationData(region="Z2 Power Room", address=659, can_create=legacy_stages_on),
+    "Power Room Miniboss: 2nd Gazamir": MMZero3LocationData(region="Z2 Power Room", address=660, can_create=legacy_stages_on),
+    "Power Room Miniboss: Golem Type F": MMZero3LocationData(region="Z2 Power Room", address=661, can_create=legacy_stages_on),
+    "Power Room Miniboss: Power Reactor, 1st Room": MMZero3LocationData(region="Z2 Power Room", address=662, can_create=legacy_stages_on),
+    "Power Room Miniboss: Power Reactor, 2nd Room": MMZero3LocationData(region="Z2 Power Room", address=663, can_create=legacy_stages_on),
+    "Power Room Miniboss: Power Reactor, 3rd Room": MMZero3LocationData(region="Z2 Power Room", address=664, can_create=legacy_stages_on),
+    "Power Room Miniboss: Power Reactor, 4th Room": MMZero3LocationData(region="Z2 Power Room", address=665, can_create=legacy_stages_on),
+    "Forest of Dysis Miniboss: Pinofeel": MMZero3LocationData(region="Z2 Forest of Dysis", address=666, can_create=legacy_stages_on),
+    "Residential Area Miniboss: Golem Type E": MMZero3LocationData(region="Z2 Residential Area", address=667, can_create=legacy_stages_on),
+    "Residential Area Miniboss: Golem Type F": MMZero3LocationData(region="Z2 Residential Area", address=668, can_create=legacy_stages_on),
+    "Residential Area Miniboss: Golem Type I": MMZero3LocationData(region="Z2 Residential Area", address=669, can_create=legacy_stages_on),
+    "Bombardment Aircraft Miniboss: Tentolancer": MMZero3LocationData(region="Z2 Bombardment Aircraft", address=670, can_create=legacy_stages_on),
+    "Bombardment Aircraft Miniboss: Golem Type E": MMZero3LocationData(region="Z2 Bombardment Aircraft", address=671, can_create=legacy_stages_on),
+    "Forest of Notus Miniboss: Pinofeel": MMZero3LocationData(region="Z2 Forest of Notus", address=672, can_create=legacy_stages_on),
+    "Crystal Cave Miniboss: Golem Type E": MMZero3LocationData(region="Z2 Crystal Cave", address=673, can_create=legacy_stages_on),
 }
 
 # Cerveau's shop
@@ -577,13 +597,14 @@ location_categories: Dict[str, Container[int]] = {
     "Subtanks": range(221, 223),
     "Weapons": range(226, 228),
     "1-UPs": range(Data.AP_LOC_EXLIFE_FIRST, Data.AP_LOC_EXLIFE_FIRST + Data.AP_EXLIFE_COUNT),
-    "Minibosses": range(242, 253),
+    "Minibosses": [*range(242, 253), *range(Data.AP_LOC_IMPORT_MINIBOSS_FIRST,
+                                            Data.AP_LOC_IMPORT_MINIBOSS_FIRST + Data.AP_IMPORT_MINIBOSS_COUNT)],
     "Itemsanity": range(Data.AP_LOC_ITEMSANITY_FIRST,
                                           Data.AP_LOC_ITEMSANITY_FIRST
                                           + Data.AP_ITEMSANITY_COUNT),
     "Shop": range(Data.AP_SHOP_LOCATION_FIRST,
                   Data.AP_SHOP_LOCATION_FIRST + Data.AP_SHOP_SLOTS_MAX),
-    "Forms": [*range(383, 390), 655],
+    "Forms": range(383, 391),
 }
 
 
