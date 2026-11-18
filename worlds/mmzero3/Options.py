@@ -1,20 +1,21 @@
 from dataclasses import dataclass
-from Options import (Choice, Range, Toggle, DefaultOnToggle, OptionSet, DeathLink, OptionGroup, StartInventoryPool,
-                     PerGameCommonOptions, Visibility)
+from Options import (Choice, Range, NamedRange, Toggle, DefaultOnToggle, OptionSet, DeathLink, OptionGroup,
+                     StartInventoryPool, PerGameCommonOptions, Visibility)
 
 from .data import Data
 
 
 class RequiredSecretDisks(Range):
-    """Number of Secret Disks required to unlock the final stage.
+    """Percentage of the seed's Secret Disks required to unlock the final stage.
 
     The Abandoned Research Laboratory opens once every other stage has been cleared and
-    you are holding this many disks. Clearing it completes the game.
+    you are holding this share of the disks. Clearing that stage completes the game.
+    A seed has 180 disks, unless the disk cut option is enabled.
     """
     display_name = "Required Secret Disks"
     range_start = 0
-    range_end = 180
-    default = 120
+    range_end = 100
+    default = 67
 
 class ExSkillRank(Choice):
     """The rank a stage clear needs in order to send that stage's EX Skill check. In the vanilla game it would be an A.
@@ -162,7 +163,7 @@ class EnemyDiskMarkers(DefaultOnToggle):
     display_name = "Enemy Disk Markers"
 
 
-class LegacyStages(Toggle):
+class LegacyStages(Choice):
     """
     Adds stages from the other Mega Man Zero series games to this seed.
     Just Zero 2 is added so far.
@@ -170,13 +171,60 @@ class LegacyStages(Toggle):
 
     You will need to add your Zero 2 ROM to zero2_rom_file under MMZero3_settings in host.yaml,
     located in your root Archipelago directory.
+
+    Shuffle: keeps a total of 16 stages, with Zero 2 stages taking place of some of Zero 3's stages (see Legacy Shuffle Count).
+    The final stage is always Zero 3's Abandoned Research Factory. 
+    
+    All: adds every Zero 2 stage beside Zero 3's, for a total of 32 stages.
     """
     display_name = "Legacy Stages"
+    option_off = 0
+    option_shuffle = 1
+    option_all = 2
+    default = 0
+
+
+class CutSecretDisks(Toggle):
+    """
+    WARNING: This option will leave Secret Disks out of your seed during generation.
+
+    Zero 2 stages have far fewer locations than the Zero 3 stages they replace, so a Legacy Stages shuffle with
+    many zero 2 levels, combined with a small shop, and no itemsanity/lifesanity can have more items than locations. 
+    This will cause generation to fail. This setting attempts to fix this problem by cutting down on the number of 
+    secret disks in the Zero 3 game. This will only remove enemy and lore disks first, removing cosmetic related disks next.
+
+    Off, a seed that cannot generate will refuses to generate. This lets you add more checks through the shop or other means.
+
+    On, certain Secret Disks are left out until the game can succeed in generation. 
+    """
+    display_name = "Cut Secret Disks"
+
+
+class LegacyShuffleCount(NamedRange):
+    """How many of Zero 3's 15 stages Zero 2 stages replace, with Legacy Stages on shuffle."""
+    display_name = "Legacy Shuffle Count"
+    range_start = 0
+    range_end = 15
+    default = 0
+    special_range_names = {"coin_flip": 0}
 
 
 class InfiniteLives(Toggle):
     """Get infinite lives."""
     display_name = "Infinite Lives"
+
+
+class AttackModeB(Toggle):
+    """
+    Start a new game with the attack mode set to Type B instead of Type A.
+    You can still change it in game after the fact. This is just to save you several seconds every time you start a new game.
+    """
+    display_name = "Attack Mode B"
+
+
+class DoubleTapDash(DefaultOnToggle):
+    """Tapping left or right twice dashes, as how it works in the vanilla game. Disable to dash only with the dash button."""
+    display_name = "Double-Tap Dash"
 
 
 class ShopSlots(Range):
@@ -226,6 +274,8 @@ mmzero3_option_groups = [
         ShopSlots,
         ShopPriceScale,
         LegacyStages,
+        LegacyShuffleCount,
+        CutSecretDisks,
     ]),
     OptionGroup("Optional Randomization", [
         RandomizeEnemies,
@@ -238,6 +288,8 @@ mmzero3_option_groups = [
         CyberElves,
         ExSkillRank,
         InfiniteLives,
+        AttackModeB,
+        DoubleTapDash,
         DeathLink,
     ]),
     OptionGroup("Traps", [
@@ -267,12 +319,16 @@ class MMZero3Options(PerGameCommonOptions):
     disk_name_popup: DiskNamePopup
     enemy_disk_markers: EnemyDiskMarkers
     infinite_lives: InfiniteLives
+    attack_mode_b: AttackModeB
+    double_tap_dash: DoubleTapDash
     randomize_enemies: RandomizeEnemies
     enemy_difficulty: EnemyDifficulty
     start_inventory_from_pool: StartInventoryPool
     shop_slots: ShopSlots
     shop_price_scale: ShopPriceScale
     legacy_stages: LegacyStages
+    legacy_shuffle_count: LegacyShuffleCount
+    cut_secret_disks: CutSecretDisks
     trap_percentage: TrapPercentage
     enabled_traps: EnabledTraps
     death_link: DeathLink

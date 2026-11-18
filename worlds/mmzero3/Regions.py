@@ -44,6 +44,9 @@ region_data_table: Dict[str, MMZero3RegionData] = {
         # Final Level
         "Abandoned Research Laboratory",
 
+        # Zero 2's forms, can be earned in any stage when a zero 2 stage exists in the seed.
+        "Zero 2 Forms",
+
         # Legacy stages, with legacy_stages option:
         "Z2 Sand Wilderness",
         "Z2 Computer Zone",
@@ -94,6 +97,8 @@ region_data_table: Dict[str, MMZero3RegionData] = {
 
     # Final stage
     "Abandoned Research Laboratory": MMZero3RegionData(),
+
+    "Zero 2 Forms": MMZero3RegionData(),
 
     "Z2 Sand Wilderness": MMZero3RegionData(),
     "Z2 Computer Zone": MMZero3RegionData(),

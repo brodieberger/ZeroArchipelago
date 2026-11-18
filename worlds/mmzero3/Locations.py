@@ -560,6 +560,15 @@ for slot_number in range(Data.AP_SHOP_SLOTS_MAX):
         can_create=shop_slot_is_stocked(slot_number),
     )
 
+# Zero 2's forms, for if Zero 2 stages in the seed
+form_names = ["Energy Form", "Erase Form", "Defense Form", "Rise Form", "Power Form", "Active Form", "X Form"]
+for form_number, form_name in enumerate(form_names):
+    location_data_table[form_name] = MMZero3LocationData(
+        region="Zero 2 Forms",
+        address=Data.AP_LOC_FORM_FIRST + form_number,
+        can_create=legacy_stages_on,
+    )
+
 # Location groups for `!hint` and tracker filtering.
 location_categories: Dict[str, Container[int]] = {
     "Secret Disks": range(1, 181),
@@ -573,6 +582,7 @@ location_categories: Dict[str, Container[int]] = {
                                           + Data.AP_ITEMSANITY_COUNT),
     "Shop": range(Data.AP_SHOP_LOCATION_FIRST,
                   Data.AP_SHOP_LOCATION_FIRST + Data.AP_SHOP_SLOTS_MAX),
+    "Forms": range(Data.AP_LOC_FORM_FIRST, Data.AP_LOC_FORM_FIRST + Data.AP_FORM_COUNT),
 }
 
 

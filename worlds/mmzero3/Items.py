@@ -52,6 +52,21 @@ def weapon_ability_level(weapon: str, ability: str) -> int:
     return weapon_chains[weapon].index(ability) + 1
 
 
+def disk_cut_tier(disk: int) -> Optional[int]:
+    """For when secret disks need to be cut from the pool. Gives tier, lowest taken away first"""
+    if 7 <= disk <= 20 or disk == 116 or 165 <= disk <= 176:   # text
+        return 0
+    if 141 <= disk <= 164 or 177 <= disk <= 180:                 # cosmetic skins
+        return 1
+    if 111 <= disk <= 140 and disk != 120:                       # base decorations and NPCs
+        return 2
+    if 95 <= disk <= 110:                                        # E-Crystals
+        return 3
+    if 28 <= disk <= 43 or 74 <= disk <= 86:                     # cyber elves
+        return 4
+    return None
+
+
 item_data_table: Dict[str, MMZero3ItemData] = {
     "Disk 001: Auto-Charge Head Chip": MMZero3ItemData(code=1, type=ItemClassification.progression_skip_balancing | ItemClassification.useful),
     "Disk 002: Auto-Recover Head Chip": MMZero3ItemData(code=2, type=ItemClassification.progression_skip_balancing | ItemClassification.useful),
@@ -253,6 +268,7 @@ item_data_table: Dict[str, MMZero3ItemData] = {
         f"{stage} Access": MMZero3ItemData(
             code=180 + idx + 1,
             type=ItemClassification.progression,
+            can_create=lambda world, stage=stage: stage in world.stages(),
         )
         for idx, stage in enumerate(stage_names)
     },
@@ -260,7 +276,7 @@ item_data_table: Dict[str, MMZero3ItemData] = {
         f"{stage} Access": MMZero3ItemData(
             code=Data.AP_ITEM_IMPORT_ACCESS_FIRST + zero2_stages.index(stage),
             type=ItemClassification.progression,
-            can_create=lambda world: world.options.legacy_stages.value,
+            can_create=lambda world, stage=stage: stage in world.stages(),
         )
         for stage in legacy_stage_names
     },
