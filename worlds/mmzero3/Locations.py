@@ -539,6 +539,7 @@ location_data_table: Dict[str, MMZero3LocationData] = {
     
     "Complete Z2 Yggdrasil": MMZero3LocationData(region="Z2 Yggdrasil", address=640, can_create=legacy_stages_on),
     "A+ Rank Clear: Z2 Yggdrasil": MMZero3LocationData(region="Z2 Yggdrasil", address=641, can_create=legacy_stages_on),
+    "Proto Form": MMZero3LocationData(region="Z2 Yggdrasil", address=655, can_create=legacy_stages_on),
 }
 
 # Cerveau's shop
@@ -582,7 +583,7 @@ location_categories: Dict[str, Container[int]] = {
                                           + Data.AP_ITEMSANITY_COUNT),
     "Shop": range(Data.AP_SHOP_LOCATION_FIRST,
                   Data.AP_SHOP_LOCATION_FIRST + Data.AP_SHOP_SLOTS_MAX),
-    "Forms": range(Data.AP_LOC_FORM_FIRST, Data.AP_LOC_FORM_FIRST + Data.AP_FORM_COUNT),
+    "Forms": [*range(383, 390), 655],
 }
 
 
