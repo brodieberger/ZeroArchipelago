@@ -246,6 +246,22 @@ class DoubleTapDash(DefaultOnToggle):
     display_name = "Double-Tap Dash"
 
 
+class AirSpinSlash(Choice):
+    """How an air spinning slash is performed when cyber elf Malthas (Disk 066) is active.
+
+    Hold Up: Hold up while slashing in the air, as in the vanilla game.
+
+    Jump Slash: Every slash in the air spins, as in Mega Man Zero 1 and 2. Hold up for a normal slash.
+
+    Double Tap: Press attack again during an air slash to spin after it, as in Mega Man ZX.
+    """
+    display_name = "Air Spin Slash"
+    option_hold_up = Data.AP_AIR_SPIN_HOLD_UP
+    option_jump_slash = Data.AP_AIR_SPIN_JUMP_SLASH
+    option_double_tap = Data.AP_AIR_SPIN_DOUBLE_TAP
+    default = option_hold_up
+
+
 class ShopSlots(Range):
     """How many slots Cerveau's shop stocks."""
     display_name = "Shop Slots"
@@ -312,6 +328,7 @@ mmzero3_option_groups = [
         InfiniteLives,
         AttackModeB,
         DoubleTapDash,
+        AirSpinSlash,
         DeathLink,
     ]),
     OptionGroup("Traps", [
@@ -344,6 +361,7 @@ class MMZero3Options(PerGameCommonOptions):
     infinite_lives: InfiniteLives
     attack_mode_b: AttackModeB
     double_tap_dash: DoubleTapDash
+    air_spin_slash: AirSpinSlash
     randomize_enemies: RandomizeEnemies
     enemy_difficulty: EnemyDifficulty
     start_inventory_from_pool: StartInventoryPool

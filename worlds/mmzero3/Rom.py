@@ -292,6 +292,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u8  attackMode;
         u8  randomEnemies;
         u8  doubleTapDash;
+        u8  airSpinSlash;
         u8  slotImport[15];
         u8  requiredStages;
     };
@@ -324,6 +325,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         "legacyStages": world.options.legacy_stages.value,
         "attackMode": 1 if world.options.attack_mode_b.value else 0,
         "doubleTapDash": 1 if world.options.double_tap_dash.value else 0,
+        "airSpinSlash": world.options.air_spin_slash.value,
         "randomEnemies": 1 if world.enemies else 0,
         "slotImport": bytes(legacy_stage_names.index(stage) if stage in legacy_stage_names else Data.AP_SLOT_OWN
                             for stage in world.slot_stages),
