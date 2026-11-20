@@ -12,6 +12,14 @@ class RequiredSecretDisks(Range):
     range_end = 100
     default = 67
 
+class RequiredStageClears(Range):
+    """Percentage of the available stages you must clear to open the final stage."""
+    display_name = "Required Stage Clears"
+    range_start = 0
+    range_end = 100
+    default = 100
+
+
 class ExSkillRank(Choice):
     """The rank you must get in a stage to send that stage's "A+ Rank Clear" check.
 
@@ -31,12 +39,7 @@ class ExSkillRank(Choice):
 
 
 class FinalStageRank(Choice):
-    """The rank you need to get on each stage for the final stage to open, in addition to the required disks.
-
-    F means that clearing each stage will be needed to unlock the final stage.
-    
-    None means no stages have to be cleared at all, and the final stage opens as soon as you hold the required secret disks.
-    """
+    """The rank you need to get on a stage completion, for it to count toward opening the final stage."""
     display_name = "Final Stage Rank"
     option_s = Data.RANK_S
     option_a = Data.RANK_A
@@ -45,7 +48,6 @@ class FinalStageRank(Choice):
     option_d = Data.RANK_D
     option_e = Data.RANK_E
     option_f = Data.RANK_F
-    option_none = Data.AP_FINAL_RANK_NONE
     default = Data.RANK_F
 
 
@@ -65,7 +67,7 @@ class Itemsanity(Toggle):
 
 
 class ExtraLifeSanity(DefaultOnToggle):
-    """Makes every 1-UP pickup a location check (10 in total)."""
+    """Makes every 1-UP pickup a location check (10 in Zero 3's stages, 21 in Zero 2's)."""
     display_name = "Extra Life Sanity"
 
 
@@ -178,7 +180,7 @@ class LegacyStages(Choice):
     """
     Adds stages from Mega Man Zero 2 to the seed. Chain Rod included as a fifth weapon. Zero 2 forms are also added as location checks.
 
-    Enemy Randomizer, Stage Palette Randomizer, Itemsanity, and Extra Life Sanity are not currently supported for these stages.
+    Enemy Randomizer, Stage Palette Randomizer, and Itemsanity are not currently supported for these stages.
 
     Off: Zero 3's 16 stages only.
 
@@ -283,6 +285,7 @@ class EnabledTraps(OptionSet):
 mmzero3_option_groups = [
     OptionGroup("Goal Options", [
         RequiredSecretDisks,
+        RequiredStageClears,
         FinalStageRank,
     ]),
     OptionGroup("Legacy Stages (Zero 2)", [
@@ -326,6 +329,7 @@ mmzero3_option_groups = [
 @dataclass
 class MMZero3Options(PerGameCommonOptions):
     required_secret_disks: RequiredSecretDisks
+    required_stage_clears: RequiredStageClears
     ex_skill_rank: ExSkillRank
     final_stage_rank: FinalStageRank
     starting_weapons: StartingWeapons

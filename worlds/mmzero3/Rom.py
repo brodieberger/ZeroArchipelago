@@ -293,6 +293,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
         u8  randomEnemies;
         u8  doubleTapDash;
         u8  slotImport[15];
+        u8  requiredStages;
     };
 
     slotImport is the legacy stage in each Zero 3 stage's slot.
@@ -308,6 +309,7 @@ def write_tokens(world: "MMZero3World", patch: MMZero3ProcedurePatch) -> None:
 
     values = {
         "requiredDisks": world.required_disk_count,
+        "requiredStages": world.required_stage_count,
         "startingWeapons": starting_weapons,
         "exSkillRank": world.options.ex_skill_rank.value,
         "itemsanity": 1 if world.options.itemsanity.value else 0,

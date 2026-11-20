@@ -19,8 +19,7 @@ mission again, with the boss included, for another try at the A+ rank check.
 
 ## What is the goal?
 
-Clear the Abandoned Research Laboratory and defeat Omega. The stage only opens once you have cleared every other stage and are holding enough
-secret disks, (120 by default).
+Clear the Abandoned Research Laboratory and defeat Omega. The stage only opens once you have cleared completed certain conditions, set in your YAML options. (Collect 120 secret disks and clear each stage by default).
 
 ## Legacy stages
 
@@ -31,7 +30,7 @@ You need your own Mega Man Zero 2 (USA) ROM to patch a seed with legacy stages. 
 
 Each legacy stage has its clear, its A+ rank clear, its cyber elves and its miniboss fights as locations (14 minibosses across eight stages). Zero 2's forms are locations too: Energy, Erase, Defense, Rise, Power, Active and X are earned as in Zero 2, in any stage, and Proto Form by clearing Yggdrasil.
 
-Enemy Randomizer, Stage Palette Randomizer, Itemsanity, and Lifesanity are not currently supported for these stages as of now.
+Enemy Randomizer, Stage Palette Randomizer and Itemsanity are not currently supported for these stages.
 
 ## What items and locations get shuffled?
 
@@ -43,7 +42,7 @@ Locations:
 - Both sub tanks
 - Cerveau's Recoil Rod and Shield Boomerang
 - Eleven miniboss fights
-- Optionally, the ten 1-UPs placed in stages (`extra_life_sanity`, on by default)
+- Optionally, the 1-UPs placed in stages, ten in Zero 3's and 21 in Zero 2's (`extra_life_sanity`, on by default)
 - Optionally, the 82 life capsules and E-Crystals placed in stages (`itemsanity`)
 - Optionally, the slots in Cerveau's shop (`shop_slots`)
 - Optionally, the legacy stages' locations (`legacy_stages`, see above)

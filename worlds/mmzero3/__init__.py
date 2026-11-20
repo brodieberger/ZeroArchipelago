@@ -11,6 +11,7 @@ from .Items import (MMZero3Item, STORY_LATE, STORY_MID, disk_cut_tier, item_data
 from .Locations import (MMZero3Location, location_data_table, location_name_groups, location_table,
                         locked_locations, shop_location_names)
 from .Options import LegacyStages, MMZero3Options, mmzero3_option_groups
+from .Presets import mmzero3_options_presets
 from .Regions import region_data_table
 from .Rom import MMZero3ProcedurePatch, MMZero3Settings, write_tokens
 from .data import Data
@@ -26,6 +27,7 @@ class MMZero3WebWorld(WebWorld):
     theme = "ice"
     bug_report_page = "https://github.com/brodieberger/MMZero3Archipelago/issues"
     option_groups = mmzero3_option_groups
+    options_presets = mmzero3_options_presets
     setup_en = Tutorial(
         "Multiworld Setup Guide",
         "A guide to setting up the Mega Man Zero 3 Randomizer connected to an Archipelago Multiworld.",
@@ -58,6 +60,7 @@ class MMZero3World(World):
     starting_weapons: set
     slot_stages: List[str]
     required_disk_count: int
+    required_stage_count: int
 
     def generate_early(self) -> None:
         self.roll_shop_prices()
@@ -77,6 +80,7 @@ class MMZero3World(World):
             self.options.randomize_enemies.value = passthrough.get("randomize_enemies", 0)
             self.slot_stages = passthrough["slot_stages"]
             self.required_disk_count = passthrough["required_disk_count"]
+            self.required_stage_count = passthrough["required_stage_count"]
         else:
             self.starting_weapons = set(self.options.starting_weapons.value)
 
@@ -84,6 +88,7 @@ class MMZero3World(World):
                 self.starting_weapons = {self.random.choice(weapon_names)}
             self.slot_stages = self.roll_slot_stages()
             self.required_disk_count = self.disks_in_seed() * self.options.required_secret_disks.value // 100
+            self.required_stage_count = len(self.stages()) * self.options.required_stage_clears.value // 100
 
         # If it is your only weapon, add another Shield Boomerang so you can actually attack.
         if self.starting_weapons == {"Shield Boomerang"}:
@@ -224,6 +229,8 @@ class MMZero3World(World):
         return {
             "required_secret_disks": self.options.required_secret_disks.value,
             "required_disk_count": self.required_disk_count,
+            "required_stage_clears": self.options.required_stage_clears.value,
+            "required_stage_count": self.required_stage_count,
             "slot_stages": self.slot_stages,
             "ex_skill_rank": self.options.ex_skill_rank.value,
             "final_stage_rank": self.options.final_stage_rank.value,
@@ -321,10 +328,11 @@ class MMZero3World(World):
         set_rule(self.multiworld.get_entrance("To Resistance Base 3", self.player),
                  lambda state: state.has("Story Progress", self.player, STORY_LATE))
 
-        # The final stage. Needs every slot's access item and the required disks
+        # The final stage. Needs the access items of stages needed, and the required disks
+        stage_access_names = [f"{stage} Access" for stage in self.stages()]
         set_rule(
             self.multiworld.get_entrance("To Abandoned Research Laboratory", self.player),
-            lambda state: state.has_all(slot_access_names, self.player)
+            lambda state: state.has_from_list(stage_access_names, self.player, self.required_stage_count)
             and state.has_group("Secret Disks", self.player, self.required_disk_count),
         )
         # Since its lame that important items could spawn here, prevent progressive items
