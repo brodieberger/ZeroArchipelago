@@ -87,8 +87,6 @@ def set_rules(world: "MMZero3World") -> None:
         "Forest of Anatre (8) 040: Breakables Below Boss Room",
         "Giant Elevator (2) 041: 1st Passage High Ledges",
         "Giant Elevator (6) 027: 1st Descent Bottom Left Breakable",
-        "Aegis Volcano Base E-Crystal (2): Push 1st Container",
-        "Aegis Volcano Base E-Crystal (3): Push 1st Container",
         "Oceanic Highway Ruins E-Crystal (1): 1st Pit Breakable",
         "Oceanic Highway Ruins E-Crystal (2): 1st Pit Breakable",
         "Weapons Repair Factory E-Crystal (1): Hit 3rd Hammer",
@@ -153,8 +151,13 @@ def set_rules(world: "MMZero3World") -> None:
     world.add_location_rule("Resistance Base 1-UP: In Locked Room by Andrew",
                             lambda state: state.has("Disk 120: New Room Near Andrew", player))
 
-    world.add_location_rule("Aegis Volcano Base (4) 114: Push 1st Container",
-                            lambda state: has_rod(state) or has_weapon_at(state, "Chain Rod", "Owns"))
+    # Recoil Rod pushes, Chain Rod pulls
+    for loc_name in [
+        "Aegis Volcano Base (4) 114: Push 1st Container",
+        "Aegis Volcano Base E-Crystal (2): Push 1st Container",
+        "Aegis Volcano Base E-Crystal (3): Push 1st Container",
+    ]:
+        world.add_location_rule(loc_name, lambda state: has_rod(state) or has_weapon_at(state, "Chain Rod", "Owns"))
 
     # You need to pogo off enemies for these ones.
     if world.options.randomize_enemies:
