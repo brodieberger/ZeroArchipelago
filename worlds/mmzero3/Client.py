@@ -127,13 +127,13 @@ class MMZero3Client(BizHawkClient):
             (Data.DISKS_OWNED, 2, WRAM),
             (Data.DEATH_COUNT, 2, WRAM),
             (Data.CAN_ACCEPT_ITEMS, 1, WRAM),
-            (Data.SHOP_SEEN, Data.SHOP_SEEN_COUNT, WRAM),
+            (Data.SHOP_HINTED, Data.SHOP_HINTED_COUNT, WRAM),
             (Data.STAGE_ID, 2, WRAM),
             (Data.STAGE_AREA, 1, WRAM),
         ])
 
         (ready, version, inbox_write_index, inbox_read_index,
-         items_applied, disks_owned, death_count, can_accept_items, shop_seen, stage, area) = mailbox_bytes
+         items_applied, disks_owned, death_count, can_accept_items, shop_hinted, stage, area) = mailbox_bytes
 
         if int.from_bytes(ready, "little") != Data.AP_READY:
             return None
@@ -165,7 +165,7 @@ class MMZero3Client(BizHawkClient):
             "disks_owned": int.from_bytes(disks_owned, "little"),
             "death_count": int.from_bytes(death_count, "little"),
             "can_accept_items": can_accept_items[0] != 0,
-            "shop_seen": shop_seen,
+            "shop_hinted": shop_hinted,
             "stage": int.from_bytes(stage, "little"),
             "area": area[0],
         }
@@ -352,13 +352,14 @@ class MMZero3Client(BizHawkClient):
 
     async def handle_shop_hints(self, ctx: "BizHawkClientContext", mailbox: Dict[str, Any]) -> None:
         """
-        Hint every shop slot the player has looked at.
+        Hint the shop slots the player pressed SELECT on.
         WIP the shop only has one set of items unlocked from the start, this will be updated later.
+
         """
-        seen = mailbox["shop_seen"]
-        looked_at = [Data.AP_SHOP_LOCATION_FIRST + slot for slot in range(len(seen) * 8)
-                     if seen[slot >> 3] & (1 << (slot & 7))]
-        new_hints = [location for location in looked_at
+        asked = mailbox["shop_hinted"]
+        hinted = [Data.AP_SHOP_LOCATION_FIRST + slot for slot in range(len(asked) * 8)
+                  if asked[slot >> 3] & (1 << (slot & 7))]
+        new_hints = [location for location in hinted
                      if location in ctx.missing_locations and location not in self.shop_hinted]
         if new_hints:
             self.shop_hinted.update(new_hints)

@@ -266,8 +266,8 @@ class ShopSlots(Range):
     """How many slots Cerveau's shop stocks."""
     display_name = "Shop Slots"
     range_start = 0
-    range_end = 48
-    default = 16
+    range_end = 90
+    default = 30
 
 
 class ShopPriceScale(Range):

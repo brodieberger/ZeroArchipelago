@@ -605,7 +605,7 @@ location_data_table: Dict[str, MMZero3LocationData] = {
 }
 
 # Cerveau's shop
-# Max 48 Slots: locations 253–300
+# Max 90 slots: locations 703–792
 def shop_slot_is_stocked(slot: int) -> Callable[["MMZero3World"], bool]:
     """can_create for one shop slot: the seed stocks the first shop_slots of them."""
     def can_create(world: "MMZero3World") -> bool:
