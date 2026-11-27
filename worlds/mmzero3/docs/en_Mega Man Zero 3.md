@@ -28,7 +28,7 @@ Clear the Abandoned Research Laboratory and defeat Omega. The stage only opens o
 This option also adds the Chain Rod as a fifth weapon, with the five `Progressive Chain Rod` items.
 You need your own Mega Man Zero 2 (USA) ROM to patch a seed with legacy stages. See the setup guide.
 
-Each legacy stage has its clear, its A+ rank clear, its cyber elves and its miniboss fights as locations (14 minibosses across eight stages). Zero 2's forms are locations too: Energy, Erase, Defense, Rise, Power, Active and X are earned as in Zero 2, in any stage, and Proto Form by clearing Yggdrasil.
+Zero 2's forms are also locations: Energy, Erase, Defense, Rise, Power, Active and X are earned through their vanilla game challenges. Proto Form is earned by clearing Yggdrasil.
 
 Enemy Randomizer, Stage Palette Randomizer and Itemsanity are not currently supported for these stages.
 
@@ -107,7 +107,7 @@ These work with `!hint`, for example `!hint Stage Access` or `!missing Sub Arcad
 | Locations | |
 | --- | --- |
 | Per stage | `Resistance Base` (all three mission sets), `Aegis Volcano Base`, `Sunken Library`, and so on |
-| By type | `Secret Disks`, `Stage Clears`, `Chips`, `A+ Rank Clears`, `Subtanks`, `Weapons`, `1-UPs`, `Minibosses`, `Itemsanity`, `Shop`, `Cyber Elves` |
+| By type | `Secret Disks`, `Stage Clears`, `Chips`, `A+ Rank Clears`, `Subtanks`, `Weapons`, `1-UPs`, `Minibosses`, `Refights`, `Itemsanity`, `Shop`, `Cyber Elves` |
 
 | Items | |
 | --- | --- |
